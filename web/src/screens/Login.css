@@ -1,0 +1,285 @@
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  flex-direction: column;
+}
+
+.page-header {
+  background-color: #e8f0e8;
+  padding: 15px 30px;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header-logo {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+  margin-right: 15px;
+}
+
+.page-header h1 {
+  font-size: 28px;
+  color: #2d9e52;
+  margin: 0;
+  font-weight: bold;
+}
+
+.login-content {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+}
+
+.login-left {
+  flex: 1;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.left-content {
+  width: 100%;
+  max-width: 400px;
+}
+
+.brgygo-logo {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logo-icon {
+  width: 50px;
+  height: 50px;
+  background-color: #fff;
+  border: 2px solid #2d9e52;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  overflow: hidden;
+}
+
+.logo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.logo-icon-large {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.logo-image {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.brgygo-title {
+  font-size: 32px;
+  color: #2d9e52;
+  margin: 0;
+  font-weight: bold;
+}
+
+.left-text h2 {
+  font-size: 28px;
+  color: #7ab56c;
+  margin-top: 40px;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.left-text p {
+  font-size: 18px;
+  color: #7ab56c;
+  font-style: italic;
+  margin: 10px 0;
+}
+
+.login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.login-card {
+  background-color: white;
+  border: 2px solid #ddd;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.logo-icon-small {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+
+.login-header p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #2d9e52;
+  background-color: #fff;
+}
+
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.form-checkbox input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+  width: auto;
+}
+
+.form-checkbox label {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  cursor: pointer;
+}
+
+.signin-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #2d9e52;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.signin-btn:hover {
+  background-color: #1f7a3d;
+}
+
+.signin-btn:active {
+  background-color: #155f2f;
+}
+
+.login-links {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+.login-links p {
+  margin: 0 0 10px 0;
+  color: #666;
+}
+
+.login-links a {
+  color: #2d9e52;
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.login-links a:hover {
+  text-decoration: underline;
+}
+
+.forgot-link {
+  color: #2d9e52;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.login-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .login-content {
+    flex-direction: column;
+  }
+
+  .login-left {
+    flex: 0.5;
+    min-height: 25vh;
+  }
+
+  .login-right {
+    flex: 1;
+  }
+
+  .left-text h2,
+  .left-text p {
+    font-size: 16px;
+  }
+
+  .brgygo-title {
+    font-size: 24px;
+  }
+
+  .page-header h1 {
+    font-size: 20px;
+  }
+
+  .header-logo {
+    width: 35px;
+    height: 35px;
+  }
+}
