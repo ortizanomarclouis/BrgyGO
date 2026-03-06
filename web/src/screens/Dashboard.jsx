@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import './Dashboard.css';
+import { useAuth } from '../hooks';
 
-function Dashboard({ user, onNavigate }) {
+function Dashboard({ onNavigate }) {
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const menuItems = [
@@ -13,16 +15,17 @@ function Dashboard({ user, onNavigate }) {
   ];
 
   const handleLogout = () => {
+    logout();
     onNavigate('login');
   };
 
-  const userInitial = user?.name?.[0]?.toUpperCase() || 'W';
+  const userInitial = user?.fullName?.[0]?.toUpperCase() || 'U';
 
   return (
     <div className="dashboard-container">
       <div className={`dashboard-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
-        <img src="/Logo.jpg" alt="BrgyGO Logo" className="logo-icon" />
+          <img src="/Logo.png" alt="BrgyGO Logo" className="logo-icon" />
           <h2>BrgyGO</h2>
         </div>
 
@@ -65,7 +68,8 @@ function Dashboard({ user, onNavigate }) {
 
         <div className="dashboard-content">
           <div className="content-header">
-            <h2>Wyben Gwapo</h2>
+            <h2>Welcome, {user?.fullName || 'User'}</h2>
+            <p>{user?.email}</p>
           </div>
 
           <div className="dashboard-grid">

@@ -15,6 +15,10 @@ web/
 ├── public/
 │   └── index.html
 ├── src/
+│   ├── hooks/
+│   │   ├── api.js
+│   │   ├── useAuth.js
+│   │   └── index.js
 │   ├── screens/
 │   │   ├── Login.js
 │   │   ├── Login.css
@@ -26,6 +30,7 @@ web/
 │   ├── App.css
 │   ├── index.js
 │   └── index.css
+├── .env
 ├── package.json
 └── README.md
 ```
@@ -74,16 +79,35 @@ The application will open in your browser at `http://localhost:3000`
 - Background: `#f5f5f5`
 - Light Gray: `#e8e8e8`
 
+## API Integration
+
+The application uses custom React hooks for backend communication:
+
+- **api.js**: Axios configuration with interceptors for authentication
+- **useAuth.js**: Authentication hooks (login, register, logout)
+- **AuthProvider**: Context provider for global auth state
+
+### Environment Variables
+
+Create a `.env` file in the web directory:
+
+```env
+REACT_APP_API_URL=http://localhost:8080/brgygo
+```
+
 ## Dependencies
 
 - React 18.2.0
 - React DOM 18.2.0
 - React Icons 4.7.1
+- Axios (for API calls)
 
 ## Future Enhancements
 
 - Add routing with React Router
-- Implement API integration
+- Implement more API endpoints
+- Add form validation
+- Implement JWT token refresh
 - Add form validation and error handling
 - Implement actual authentication
 - Add more dashboard widgets
