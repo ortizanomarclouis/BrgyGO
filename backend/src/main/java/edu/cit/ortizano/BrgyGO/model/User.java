@@ -41,6 +41,8 @@ public class User {
     @Column(nullable = false, updatable = false)
     private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
 
+    
+
     public enum Role {
         RESIDENT, ADMIN, STAFF
     }
