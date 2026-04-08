@@ -4,6 +4,8 @@ import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
 import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
 import edu.cit.ortizano.BrgyGO.model.User;
 import edu.cit.ortizano.BrgyGO.repository.DocumentRequestRepository;
+import edu.cit.ortizano.BrgyGO.factory.DocumentFactory;
+import edu.cit.ortizano.BrgyGO.factory.Certificate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
@@ -15,7 +17,7 @@ import java.util.Optional;
  * 
  * DESIGN PATTERN INTEGRATION:
  * - Uses PrintQueueManager (SINGLETON): Centralized print job management
- * - Uses DocumentFactory (FACTORY METHOD): Will create different document types
+ * - Uses DocumentFactory (FACTORY METHOD): Creates different document types
  * - Uses FeeCalculationStrategy (STRATEGY): Will calculate fees based on resident type
  */
 @Service
@@ -27,14 +29,20 @@ public class DocumentRequestService {
     // SINGLETON INTEGRATION: Inject the PrintQueueManager singleton
     // Only ONE instance exists throughout the entire application
     private final PrintQueueManager printQueueManager;
+    
+    // FACTORY METHOD INTEGRATION: Inject the DocumentFactory
+    // Uses factory to create different certificate types
+    private final DocumentFactory documentFactory;
 
     public DocumentRequestService(
             DocumentRequestRepository documentRequestRepository, 
             UserService userService,
-            PrintQueueManager printQueueManager) {  // CHANGE: Added singleton injection
+            PrintQueueManager printQueueManager,
+            DocumentFactory documentFactory) {  // CHANGE: Added factory injection
         this.documentRequestRepository = documentRequestRepository;
         this.UserService = userService;
-        this.printQueueManager = printQueueManager;  // CHANGE: Store the singleton reference
+        this.printQueueManager = printQueueManager;
+        this.documentFactory = documentFactory;  // CHANGE: Store factory reference
     }
 
     /**
@@ -190,5 +198,82 @@ public class DocumentRequestService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * DESIGN PATTERN: FACTORY METHOD IMPLEMENTATION
+     * 
+     * Generate a certificate for a document request
+     * 
+     * Uses DocumentFactory to create the appropriate certificate based on document type.
+     * The factory decides which certificate class to instantiate without changing
+     * the existing code.
+     * 
+     * CHANGES FROM ORIGINAL:
+     * - NEW METHOD: Uses DocumentFactory to create certificates
+     * - Eliminates need for if-else chains based on document type
+     * - Easy to add new document types in the future
+     * 
+     * @param requestId the document request ID
+     * @return the generated certificate
+     */
+    public Certificate generateCertificate(Long requestId) {
+        Optional<DocumentRequest> request = documentRequestRepository.findById(requestId);
+        
+        if (request.isEmpty()) {
+            throw new IllegalArgumentException("Document request not found: " + requestId);
+        }
+        
+        DocumentRequest doc = request.get();
+        
+        // FACTORY METHOD: Use factory to create appropriate certificate type
+        Certificate certificate = documentFactory.createCertificate(doc.getDocumentType());
+        
+        // Set certificate data from request
+        certificate.setCertificationNumber("CERT-" + System.currentTimeMillis());
+        certificate.setResidentName(doc.getUser().getFullName());
+        certificate.setAddress(doc.getUser().getCompleteAddress());
+        certificate.setIssuedBy("Barangay Official");
+        
+        // Generate the certificate content with specific format for this type
+        certificate.generateContent();
+        
+        System.out.println("✅ Certificate generated for request " + requestId + 
+                          " of type: " + doc.getDocumentType().getDisplayName());
+        
+        return certificate;
+    }
+
+    /**
+     * DESIGN PATTERN: FACTORY METHOD USAGE
+     * 
+     * Get certificate template for a document type
+     * Useful for showing users what each certificate looks like
+     * 
+     * CHANGES FROM ORIGINAL:
+     * - NEW METHOD: Shows available certificate templates
+     * 
+     * @param documentType the type of document
+     * @return the certificate template description
+     */
+    public String getCertificateTemplate(edu.cit.ortizano.BrgyGO.model.DocumentType documentType) {
+        // FACTORY METHOD: Get template from factory
+        return documentFactory.getCertificateTemplate(documentType);
+    }
+
+    /**
+     * DESIGN PATTERN: FACTORY METHOD USAGE
+     * 
+     * Check if a document type is supported
+     * 
+     * CHANGES FROM ORIGINAL:
+     * - NEW METHOD: Validates if system can create this document type
+     * 
+     * @param documentType the type to check
+     * @return true if supported
+     */
+    public boolean isSupportedDocumentType(edu.cit.ortizano.BrgyGO.model.DocumentType documentType) {
+        // FACTORY METHOD: Check if factory supports this type
+        return documentFactory.isSupported(documentType);
     }
 }
