@@ -1,29 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../hooks';
 
 function Dashboard({ onNavigate }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [recentRequests, setRecentRequests] = useState([
+  const recentRequests = [
     { id: 1, type: 'Barangay Clearance', status: 'Approved', date: '2024-03-10', refNumber: 'BR-2024-0001' },
     { id: 2, type: 'Certificate of Residency', status: 'Under Review', date: '2024-03-12', refNumber: 'BR-2024-0002' },
     { id: 3, type: 'Barangay ID', status: 'Submitted', date: '2024-03-14', refNumber: 'BR-2024-0003' },
-  ]);
-  const [announcements, setAnnouncements] = useState([
+  ];
+  const announcements = [
     { id: 1, title: 'Barangay Health Drive', description: 'Free health checkup for all residents every Saturday', date: '2024-03-15' },
     { id: 2, title: 'Road Maintenance Update', description: 'Main Street will be under maintenance from March 20-25', date: '2024-03-14' },
     { id: 3, title: 'Community Cleanup Drive', description: 'Join us for the monthly community cleanup next Sunday', date: '2024-03-13' },
-  ]);
-  const [notifications, setNotifications] = useState([
+  ];
+  const notifications = [
     { id: 1, message: 'Your document request BR-2024-0001 has been approved', type: 'success', time: '2 hours ago' },
     { id: 2, message: 'New announcement: Road maintenance scheduled for next week', type: 'info', time: '1 day ago' },
     { id: 3, message: 'Your issue report has been acknowledged by staff', type: 'info', time: '3 days ago' },
-  ]);
+  ];
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'request', label: 'My Request', icon: '📋' },
+    { id: 'myrequests', label: 'My Request', icon: '📋' },
     { id: 'report', label: 'Report Issue', icon: '⚠️' },
     { id: 'announcements', label: 'Announcements', icon: '📢' },
     { id: 'profile', label: 'Profile', icon: '👤' },
@@ -46,7 +46,15 @@ function Dashboard({ onNavigate }) {
 
         <nav className="sidebar-menu">
           {menuItems.map((item) => (
-            <a key={item.id} href={`#${item.id}`} className="menu-item">
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="menu-item"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate(item.id);
+              }}
+            >
               <span className="menu-icon">{item.icon}</span>
               {sidebarOpen && <span className="menu-label">{item.label}</span>}
             </a>
@@ -120,7 +128,7 @@ function Dashboard({ onNavigate }) {
             <div className="dashboard-card requests-card">
               <div className="card-header">
                 <h3>📋 My Recent Requests</h3>
-                <a href="#view-all" className="view-all">View All</a>
+                <a href="#view-all" className="view-all" onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
               </div>
               <div className="card-content">
                 {recentRequests.map((request) => (

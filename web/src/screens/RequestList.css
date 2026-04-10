@@ -1,0 +1,131 @@
+.request-list-page {
+  max-width: 1000px;
+  margin: 36px auto;
+  padding: 24px;
+}
+
+.request-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.request-list-header h1 {
+  margin: 0 0 8px;
+}
+
+.primary-button,
+.back-button {
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-weight: 600;
+}
+
+.primary-button {
+  background: #2f9b44;
+  color: #fff;
+}
+
+.back-button {
+  background: #f4f4f4;
+  color: #333;
+}
+
+.request-list-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.request-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.request-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.request-type {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.request-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.request-purpose {
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.request-footer {
+  color: #777;
+  font-size: 13px;
+}
+
+.status-error {
+  color: #c0392b;
+}
+
+.status-message {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f6f6f6;
+  color: #333;
+  text-align: center;
+}
+
+.status-message.status-error {
+  background: #fde8e8;
+  color: #9d1a1a;
+}
+
+.empty-state {
+  background: #fff;
+  border-radius: 18px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.request-status {
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-approved {
+  background: #e9f8ef;
+  color: #237a43;
+}
+
+.status-under-review {
+  background: #fff4e6;
+  color: #d97706;
+}
+
+.status-submitted {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-pending-review {
+  background: #fef3c7;
+  color: #b45309;
+}

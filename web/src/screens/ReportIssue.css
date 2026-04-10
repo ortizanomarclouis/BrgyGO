@@ -1,0 +1,103 @@
+.report-issue-page {
+  max-width: 860px;
+  margin: 36px auto;
+  padding: 24px;
+}
+
+.report-issue-header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.report-issue-header h1 {
+  margin: 0 0 8px;
+}
+
+.report-issue-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.06);
+}
+
+.alert {
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.alert-error {
+  background: #fdecea;
+  color: #9a1f1f;
+}
+
+.alert-success {
+  background: #e6f3e8;
+  color: #1f5d2d;
+}
+
+.report-issue-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.small-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  border: 1px solid #d8d8d8;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.primary-button,
+.back-button {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button {
+  background: #2f9b44;
+  color: #fff;
+}
+
+.back-button {
+  background: #f4f4f4;
+  color: #333;
+}
+
+.status-message {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #111;
+}

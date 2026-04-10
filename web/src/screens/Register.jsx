@@ -13,6 +13,7 @@ function Register({ onNavigate }) {
     agreeTerms: false,
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { handleRegister, loading } = useRegister();
 
   const handleChange = (e) => {
@@ -42,7 +43,9 @@ function Register({ onNavigate }) {
     const result = await handleRegister(formData);
 
     if (result.success) {
-      onNavigate('dashboard');
+      setSuccess('Account created successfully. Please log in.');
+      setError('');
+      setTimeout(() => onNavigate('login'), 1500);
     } else {
       setError(result.error);
     }
@@ -95,6 +98,19 @@ function Register({ onNavigate }) {
                 fontSize: '14px'
               }}>
                 {error}
+              </div>
+            )}
+            {success && (
+              <div style={{
+                color: '#155724',
+                backgroundColor: '#d4edda',
+                border: '1px solid #c3e6cb',
+                borderRadius: '4px',
+                padding: '10px',
+                marginBottom: '20px',
+                fontSize: '14px'
+              }}>
+                {success}
               </div>
             )}
 
