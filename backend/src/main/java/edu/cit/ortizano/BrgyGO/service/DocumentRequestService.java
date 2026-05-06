@@ -1,16 +1,18 @@
 package edu.cit.ortizano.BrgyGO.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import edu.cit.ortizano.BrgyGO.factory.Certificate;
+import edu.cit.ortizano.BrgyGO.factory.DocumentFactory;
 import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
 import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
 import edu.cit.ortizano.BrgyGO.model.User;
 import edu.cit.ortizano.BrgyGO.repository.DocumentRequestRepository;
-import edu.cit.ortizano.BrgyGO.factory.DocumentFactory;
-import edu.cit.ortizano.BrgyGO.factory.Certificate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Service class for Document Request operations
@@ -24,7 +26,6 @@ import java.util.Optional;
 public class DocumentRequestService {
 
     private final DocumentRequestRepository documentRequestRepository;
-    private final UserService UserService;
     
     // SINGLETON INTEGRATION: Inject the PrintQueueManager singleton
     // Only ONE instance exists throughout the entire application
@@ -36,11 +37,9 @@ public class DocumentRequestService {
 
     public DocumentRequestService(
             DocumentRequestRepository documentRequestRepository, 
-            UserService userService,
             PrintQueueManager printQueueManager,
             DocumentFactory documentFactory) {  // CHANGE: Added factory injection
         this.documentRequestRepository = documentRequestRepository;
-        this.UserService = userService;
         this.printQueueManager = printQueueManager;
         this.documentFactory = documentFactory;  // CHANGE: Store factory reference
     }

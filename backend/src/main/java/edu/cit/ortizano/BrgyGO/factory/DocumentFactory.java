@@ -1,7 +1,8 @@
 package edu.cit.ortizano.BrgyGO.factory;
 
-import edu.cit.ortizano.BrgyGO.model.DocumentType;
 import org.springframework.stereotype.Component;
+
+import edu.cit.ortizano.BrgyGO.model.DocumentType;
 
 /**
  * DESIGN PATTERN: FACTORY METHOD
@@ -48,22 +49,12 @@ public class DocumentFactory {
      * @throws IllegalArgumentException if document type is not supported
      */
     public CertificateFactory getFactory(DocumentType documentType) {
-        switch (documentType) {
-            case BARANGAY_CLEARANCE:
-                return new BarangayClearanceFactory();
-                
-            case CERTIFICATE_OF_INDIGENCY:
-                return new CertificateOfIndigencyFactory();
-                
-            case CERTIFICATE_OF_RESIDENCY:
-                return new CertificateOfResidencyFactory();
-                
-            case BARANGAY_ID:
-                return new BarangayIDFactory();
-                
-            default:
-                throw new IllegalArgumentException("Unsupported document type: " + documentType);
-        }
+        return switch (documentType) {
+            case BARANGAY_CLEARANCE -> new BarangayClearanceFactory();
+            case CERTIFICATE_OF_INDIGENCY -> new CertificateOfIndigencyFactory();
+            case CERTIFICATE_OF_RESIDENCY -> new CertificateOfResidencyFactory();
+            case BARANGAY_ID -> new BarangayIDFactory();
+        };
     }
 
     /**

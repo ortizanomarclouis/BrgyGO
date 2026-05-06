@@ -15,7 +15,9 @@ function RequestDocument({ onNavigate }) {
   const [formData, setFormData] = useState({
     documentType: 'BARANGAY_CLEARANCE',
     purpose: '',
+    identityPhoto: null,
   });
+  const [photoPreview, setPhotoPreview] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -25,6 +27,36 @@ function RequestDocument({ onNavigate }) {
       ...formData,
       [name]: value,
     });
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please upload a valid image file');
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10485760) {
+        setError('File size must not exceed 10MB');
+        return;
+      }
+
+      setFormData({
+        ...formData,
+        identityPhoto: file,
+      });
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -37,13 +69,20 @@ function RequestDocument({ onNavigate }) {
       return;
     }
 
+    if (!formData.identityPhoto) {
+      setError('Please upload a photo of a valid ID or residence ID.');
+      return;
+    }
+
     const result = await handleRequest(formData);
     if (result.success) {
       setSuccess('Document request submitted successfully. Redirecting to dashboard...');
       setFormData({
         documentType: 'BARANGAY_CLEARANCE',
         purpose: '',
+        identityPhoto: null,
       });
+      setPhotoPreview('');
       setTimeout(() => onNavigate('dashboard'), 1800);
     } else {
       setError(result.error);
@@ -95,6 +134,31 @@ function RequestDocument({ onNavigate }) {
               placeholder="Explain why you need this document"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="identityPhoto">Upload ID or Residence Photo *</label>
+            <p className="form-help-text">Please upload a clear photo of your valid ID or residence ID (JPEG, PNG, GIF, or WebP, max 10MB)</p>
+            <div className="file-upload-container">
+              <input
+                id="identityPhoto"
+                name="identityPhoto"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                required
+                className="file-input"
+              />
+              <label htmlFor="identityPhoto" className="file-label">
+                {formData.identityPhoto ? '📷 Photo Selected' : '📁 Choose Photo'}
+              </label>
+            </div>
+            {photoPreview && (
+              <div className="photo-preview">
+                <img src={photoPreview} alt="ID Preview" />
+                <p>{formData.identityPhoto?.name}</p>
+              </div>
+            )}
           </div>
 
           <button type="submit" className="submit-btn" disabled={loading}>

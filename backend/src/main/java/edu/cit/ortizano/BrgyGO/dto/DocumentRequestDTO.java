@@ -1,9 +1,10 @@
 package edu.cit.ortizano.BrgyGO.dto;
 
+import java.time.LocalDateTime;
+
 import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
 import edu.cit.ortizano.BrgyGO.model.DocumentType;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDateTime;
 
 /**
  * DTO for Document Request
@@ -22,6 +23,8 @@ public class DocumentRequestDTO {
     private String referenceNumber;
     
     private String documentUrl;
+    
+    private String identityPhotoUrl;
     
     private LocalDateTime releaseDate;
     
@@ -91,6 +94,14 @@ public class DocumentRequestDTO {
 
     public void setDocumentUrl(String documentUrl) {
         this.documentUrl = documentUrl;
+    }
+
+    public String getIdentityPhotoUrl() {
+        return identityPhotoUrl;
+    }
+
+    public void setIdentityPhotoUrl(String identityPhotoUrl) {
+        this.identityPhotoUrl = identityPhotoUrl;
     }
 
     public LocalDateTime getReleaseDate() {

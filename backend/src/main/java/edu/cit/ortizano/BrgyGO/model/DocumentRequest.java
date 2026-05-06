@@ -1,7 +1,18 @@
 package edu.cit.ortizano.BrgyGO.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 /**
  * Entity for Document Requests
@@ -34,6 +45,9 @@ public class DocumentRequest {
 
     @Column(name = "document_url")
     private String documentUrl;
+
+    @Column(name = "identity_photo_url", columnDefinition = "TEXT")
+    private String identityPhotoUrl;
 
     @Column(name = "release_date")
     private LocalDateTime releaseDate;
@@ -122,6 +136,14 @@ public class DocumentRequest {
 
     public void setDocumentUrl(String documentUrl) {
         this.documentUrl = documentUrl;
+    }
+
+    public String getIdentityPhotoUrl() {
+        return identityPhotoUrl;
+    }
+
+    public void setIdentityPhotoUrl(String identityPhotoUrl) {
+        this.identityPhotoUrl = identityPhotoUrl;
     }
 
     public LocalDateTime getReleaseDate() {

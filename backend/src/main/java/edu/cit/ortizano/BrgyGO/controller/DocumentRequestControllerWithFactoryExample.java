@@ -1,21 +1,29 @@
 package edu.cit.ortizano.BrgyGO.controller;
 
-import edu.cit.ortizano.BrgyGO.factory.Certificate;
-import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
-import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
-import edu.cit.ortizano.BrgyGO.model.DocumentType;
-import edu.cit.ortizano.BrgyGO.model.User;
-import edu.cit.ortizano.BrgyGO.dto.DocumentRequestDTO;
-import edu.cit.ortizano.BrgyGO.service.DocumentRequestService;
-import edu.cit.ortizano.BrgyGO.service.UserService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import edu.cit.ortizano.BrgyGO.dto.DocumentRequestDTO;
+import edu.cit.ortizano.BrgyGO.factory.Certificate;
+import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
+import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
+import edu.cit.ortizano.BrgyGO.model.DocumentType;
+import edu.cit.ortizano.BrgyGO.model.User;
+import edu.cit.ortizano.BrgyGO.service.DocumentRequestService;
+import edu.cit.ortizano.BrgyGO.service.UserService;
+import jakarta.validation.Valid;
 
 /**
  * DESIGN PATTERN EXAMPLE: FACTORY METHOD USAGE
@@ -27,8 +35,10 @@ import java.util.stream.Collectors;
  * Example endpoints showing Factory Method usage:
  * - POST /api/documents/{id}/generate-certificate (Factory creates certificate)
  * - GET /api/documents/certificate-template/{type} (Factory provides template)
+ * 
+ * NOTE: This is an EXAMPLE/REFERENCE file and is disabled to avoid route conflicts.
  */
-@RestController
+// @RestController - DISABLED: Example only to avoid endpoint conflicts
 @RequestMapping("/api/documents")
 public class DocumentRequestControllerWithFactoryExample {
 

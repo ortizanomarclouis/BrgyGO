@@ -1,34 +1,45 @@
 package edu.cit.ortizano.BrgyGO.controller;
 
-import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
-import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
-import edu.cit.ortizano.BrgyGO.model.User;
-import edu.cit.ortizano.BrgyGO.dto.DocumentRequestDTO;
-import edu.cit.ortizano.BrgyGO.service.DocumentRequestService;
-import edu.cit.ortizano.BrgyGO.service.UserService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import edu.cit.ortizano.BrgyGO.dto.DocumentRequestDTO;
+import edu.cit.ortizano.BrgyGO.model.DocumentRequest;
+import edu.cit.ortizano.BrgyGO.model.DocumentStatus;
+import edu.cit.ortizano.BrgyGO.model.User;
+import edu.cit.ortizano.BrgyGO.service.DocumentRequestService;
+import edu.cit.ortizano.BrgyGO.service.UserService;
+import jakarta.validation.Valid;
+
 /**
  * Controller for Document Request endpoints
  * 
  * DESIGN PATTERN INTEGRATION EXAMPLES:
  * This controller shows how to use the new design patterns implemented in services
+ * 
+ * NOTE: This is an EXAMPLE/REFERENCE file and is disabled to avoid route conflicts.
+ * See the main DocumentRequestController for active endpoints.
  */
-@RestController
+// @RestController - DISABLED: Example only to avoid endpoint conflicts
 @RequestMapping("/api/requests")
-public class DocumentRequestController {
+public class DocumentRequestControllerWithSingletonExample {
 
     private final DocumentRequestService documentRequestService;
     private final UserService userService;
 
-    public DocumentRequestController(DocumentRequestService documentRequestService, UserService userService) {
+    public DocumentRequestControllerWithSingletonExample(DocumentRequestService documentRequestService, UserService userService) {
         this.documentRequestService = documentRequestService;
         this.userService = userService;
     }

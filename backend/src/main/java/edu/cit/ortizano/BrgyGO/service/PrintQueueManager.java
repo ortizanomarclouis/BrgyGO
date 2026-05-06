@@ -1,9 +1,10 @@
 package edu.cit.ortizano.BrgyGO.service;
 
 import java.time.LocalDateTime;
-import java.util.LinkedQueue;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
+
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,7 +37,7 @@ import org.springframework.stereotype.Component;
 public class PrintQueueManager {
 
     // Thread-safe queue to store print jobs
-    private final Queue<PrintJob> printQueue = new LinkedQueue<>();
+    private final Queue<PrintJob> printQueue = new LinkedList<>();
     
     // Counter for tracking print jobs
     private int printJobCounter = 0;
@@ -113,12 +114,12 @@ public class PrintQueueManager {
      * INNER CLASS: PrintJob represents a single print task
      */
     public static class PrintJob {
-        private int sequence;
-        private String jobId;
-        private String documentType;
-        private Long documentId;
-        private Long userId;
-        private LocalDateTime createdAt;
+        private final int sequence;
+        private final String jobId;
+        private final String documentType;
+        private final Long documentId;
+        private final Long userId;
+        private final LocalDateTime createdAt;
         private LocalDateTime processedAt;
 
         public PrintJob(int sequence, String jobId, String documentType, Long documentId, Long userId, LocalDateTime createdAt) {

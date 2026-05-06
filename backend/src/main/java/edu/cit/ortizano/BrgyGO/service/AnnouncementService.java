@@ -1,15 +1,16 @@
 package edu.cit.ortizano.BrgyGO.service;
 
-import edu.cit.ortizano.BrgyGO.model.Announcement;
-import edu.cit.ortizano.BrgyGO.model.User;
-import edu.cit.ortizano.BrgyGO.repository.AnnouncementRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+
+import edu.cit.ortizano.BrgyGO.model.Announcement;
+import edu.cit.ortizano.BrgyGO.repository.AnnouncementRepository;
 
 /**
  * Service class for Announcement operations
