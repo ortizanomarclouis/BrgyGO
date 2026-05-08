@@ -20,6 +20,7 @@ public class SecurityConfig {
             .cors(cors -> {}) // ← enables CorsConfig above
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/requests/**").permitAll()
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers

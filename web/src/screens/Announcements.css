@@ -1,0 +1,75 @@
+.announcements-page {
+  max-width: 940px;
+  margin: 36px auto;
+  padding: 24px;
+}
+
+.announcements-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.announcements-header h1 {
+  margin: 0 0 8px;
+}
+
+.announcements-list {
+  display: grid;
+  gap: 18px;
+}
+
+.announcement-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.06);
+}
+
+.announcement-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.announcement-date {
+  color: #667085;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.announcement-description,
+.announcement-content {
+  color: #333;
+  line-height: 1.7;
+}
+
+.back-button {
+  border: none;
+  background: #f4f4f4;
+  color: #333;
+  padding: 12px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.status-message {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #111;
+  margin-bottom: 18px;
+}
+
+.status-error {
+  background: #fde8e8;
+  color: #9d1a1a;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #555;
+}

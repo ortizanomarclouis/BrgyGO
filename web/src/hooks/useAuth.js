@@ -44,11 +44,8 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await api.post('/api/auth/register', userData);
-
-      // After successful registration, automatically log in
-      const loginResult = await login(userData.email, userData.password);
-      return loginResult;
+      await api.post('/api/auth/register', userData);
+      return { success: true };
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Registration failed';
       return { success: false, error: errorMessage };
@@ -61,12 +58,20 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateProfile = async (profileData) => {
+    const updatedUser = { ...user, ...profileData };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+    return { success: true, user: updatedUser };
+  };
+
   const value = {
     user,
     loading,
     login,
     register,
     logout,
+    updateProfile,
     isAuthenticated: !!user,
   };
 
