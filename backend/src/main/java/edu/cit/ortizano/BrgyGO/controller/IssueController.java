@@ -1,20 +1,32 @@
 package edu.cit.ortizano.BrgyGO.controller;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import edu.cit.ortizano.BrgyGO.dto.IssueDTO;
 import edu.cit.ortizano.BrgyGO.model.Issue;
 import edu.cit.ortizano.BrgyGO.model.IssueCategory;
 import edu.cit.ortizano.BrgyGO.model.IssueStatus;
 import edu.cit.ortizano.BrgyGO.model.User;
-import edu.cit.ortizano.BrgyGO.dto.IssueDTO;
 import edu.cit.ortizano.BrgyGO.service.IssueService;
 import edu.cit.ortizano.BrgyGO.service.UserService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Controller for Issue Report endpoints
@@ -32,21 +44,42 @@ public class IssueController {
     }
 
     /**
-     * Create a new issue report
+     * Create a new issue report with optional image
      */
     @PostMapping
-    public ResponseEntity<?> createIssue(@Valid @RequestBody IssueDTO issueDTO) {
+    public ResponseEntity<?> createIssue(
+            @RequestParam("category") String category,
+            @RequestParam("urgency") String urgency,
+            @RequestParam("address") String address,
+            @RequestParam("description") String description,
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "proofImage", required = false) MultipartFile proofImage) {
         try {
             Issue issue = new Issue();
-            issue.setCategory(issueDTO.getCategory());
-            issue.setDescription(issueDTO.getDescription());
-            issue.setLatitude(issueDTO.getLatitude());
-            issue.setLongitude(issueDTO.getLongitude());
-            issue.setAddress(issueDTO.getAddress());
-            issue.setUrgency(issueDTO.getUrgency());
+            issue.setCategory(IssueCategory.valueOf(category));
+            issue.setDescription(description);
+            issue.setAddress(address);
+            try {
+                issue.setUrgency(edu.cit.ortizano.BrgyGO.model.UrgencyLevel.valueOf(urgency));
+            } catch (Exception e) {
+                issue.setUrgency(edu.cit.ortizano.BrgyGO.model.UrgencyLevel.MEDIUM);
+            }
+            
+            // Handle file upload if image is provided
+            if (proofImage != null && !proofImage.isEmpty()) {
+                try {
+                    String imageUrl = saveProofImage(proofImage);
+                    issue.setProofImageUrl(imageUrl);
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Failed to upload image: " + e.getMessage()));
+                }
+            }
             
             // Get current user (in real implementation, get from security context)
-            Optional<User> user = userService.getUserById(1L); // Placeholder
+            if (userId == null) {
+                userId = 1L; // Placeholder default
+            }
+            Optional<User> user = userService.getUserById(userId);
             if (user.isPresent()) {
                 issue.setReportedBy(user.get());
                 Issue created = issueService.createIssue(issue);
@@ -56,6 +89,25 @@ public class IssueController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /**
+     * Helper method to save proof image to file system
+     */
+    private String saveProofImage(MultipartFile file) throws Exception {
+        // Create uploads directory if it doesn't exist
+        String uploadDir = "uploads/issues";
+        Files.createDirectories(Paths.get(uploadDir));
+        
+        // Generate unique filename
+        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        Path filePath = Paths.get(uploadDir, fileName);
+        
+        // Save file
+        Files.write(filePath, file.getBytes());
+        
+        // Return relative path for database storage
+        return "/uploads/issues/" + fileName;
     }
 
     /**
@@ -181,8 +233,6 @@ public class IssueController {
         dto.setStatus(issue.getStatus());
         dto.setUrgency(issue.getUrgency());
         dto.setTrackingNumber(issue.getTrackingNumber());
-        dto.setLatitude(issue.getLatitude());
-        dto.setLongitude(issue.getLongitude());
         dto.setAddress(issue.getAddress());
         dto.setResolutionNotes(issue.getResolutionNotes());
         dto.setCreatedAt(issue.getCreatedAt());

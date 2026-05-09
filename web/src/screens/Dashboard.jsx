@@ -1,25 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../hooks';
+import api from '../hooks/api';
 
 function Dashboard({ onNavigate }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const recentRequests = [
-    { id: 1, type: 'Barangay Clearance', status: 'Approved', date: '2024-03-10', refNumber: 'BR-2024-0001' },
-    { id: 2, type: 'Certificate of Residency', status: 'Under Review', date: '2024-03-12', refNumber: 'BR-2024-0002' },
-    { id: 3, type: 'Barangay ID', status: 'Submitted', date: '2024-03-14', refNumber: 'BR-2024-0003' },
-  ];
-  const announcements = [
-    { id: 1, title: 'Barangay Health Drive', description: 'Free health checkup for all residents every Saturday', date: '2024-03-15' },
-    { id: 2, title: 'Road Maintenance Update', description: 'Main Street will be under maintenance from March 20-25', date: '2024-03-14' },
-    { id: 3, title: 'Community Cleanup Drive', description: 'Join us for the monthly community cleanup next Sunday', date: '2024-03-13' },
-  ];
-  const notifications = [
-    { id: 1, message: 'Your document request BR-2024-0001 has been approved', type: 'success', time: '2 hours ago' },
-    { id: 2, message: 'New announcement: Road maintenance scheduled for next week', type: 'info', time: '1 day ago' },
-    { id: 3, message: 'Your issue report has been acknowledged by staff', type: 'info', time: '3 days ago' },
-  ];
+  const [recentRequests, setRecentRequests] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dashboard data on component mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch recent document requests
+        try {
+          const userId = user?.id;
+          const requestsResponse = await api.get(`/api/requests${userId ? `?userId=${userId}` : ''}`);
+          if (requestsResponse.data && requestsResponse.data.content) {
+            setRecentRequests(requestsResponse.data.content.slice(0, 3));
+          }
+        } catch (err) {
+          console.log('Could not fetch requests:', err.message);
+        }
+        
+        // Fetch announcements
+        try {
+          const announcementsResponse = await api.get('/api/announcements');
+          if (announcementsResponse.data && announcementsResponse.data.content) {
+            setAnnouncements(announcementsResponse.data.content.slice(0, 3));
+          }
+        } catch (err) {
+          console.log('Could not fetch announcements:', err.message);
+        }
+        
+        // Initialize with empty notifications (can be enhanced to fetch from API later)
+        setNotifications([]);
+        
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -32,6 +62,14 @@ function Dashboard({ onNavigate }) {
   const handleLogout = () => {
     logout();
     onNavigate('login');
+  };
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+  };
+
+  const handleRemoveNotification = (id) => {
+    setNotifications(notifications.filter(n => n.id !== id));
   };
 
   const userInitial = user?.fullName?.[0]?.toUpperCase() || 'U';
@@ -81,11 +119,17 @@ function Dashboard({ onNavigate }) {
           </div>
 
           <div className="header-center">
-            <h1>Welcome Back, {user?.name || 'User'}</h1>
+            <h1>Welcome Back, {user?.fullName || 'User'}</h1>
           </div>
 
           <div className="header-right">
-            <div className="user-avatar">{userInitial}</div>
+            <button 
+              className="user-avatar" 
+              onClick={() => onNavigate('profile')}
+              title="Go to Profile"
+            >
+              {userInitial}
+            </button>
           </div>
         </div>
 
@@ -131,17 +175,23 @@ function Dashboard({ onNavigate }) {
                 <a href="#view-all" className="view-all" onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
               </div>
               <div className="card-content">
-                {recentRequests.map((request) => (
-                  <div key={request.id} className="request-item">
-                    <div className="request-info">
-                      <div className="request-type">{request.type}</div>
-                      <div className="request-ref">Ref: {request.refNumber}</div>
+                {loading ? (
+                  <div className="loading-state">Loading...</div>
+                ) : recentRequests.length === 0 ? (
+                  <div className="empty-state">No requests yet</div>
+                ) : (
+                  recentRequests.map((request) => (
+                    <div key={request.id} className="request-item">
+                      <div className="request-info">
+                        <div className="request-type">{request.documentType || request.type || 'Document'}</div>
+                        <div className="request-ref">Ref: {request.referenceNumber || request.refNumber}</div>
+                      </div>
+                      <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+                        {request.status}
+                      </div>
                     </div>
-                    <div className={`status-badge status-${request.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {request.status}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -151,13 +201,21 @@ function Dashboard({ onNavigate }) {
                 <h3>📢 Latest Announcements</h3>
               </div>
               <div className="card-content announcements-list">
-                {announcements.map((announcement) => (
-                  <div key={announcement.id} className="announcement-item">
-                    <div className="announcement-title">{announcement.title}</div>
-                    <div className="announcement-desc">{announcement.description}</div>
-                    <div className="announcement-date">{announcement.date}</div>
-                  </div>
-                ))}
+                {loading ? (
+                  <div className="loading-state">Loading...</div>
+                ) : announcements.length === 0 ? (
+                  <div className="empty-state">No announcements</div>
+                ) : (
+                  announcements.map((announcement) => (
+                    <div key={announcement.id} className="announcement-item">
+                      <div className="announcement-title">{announcement.title}</div>
+                      <div className="announcement-desc">{announcement.description}</div>
+                      <div className="announcement-date">
+                        {announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString() : announcement.date}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -172,11 +230,11 @@ function Dashboard({ onNavigate }) {
                   <div className="stat-label">Total Requests</div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => r.status === 'Approved').length}</div>
+                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').toLowerCase().includes('approved')).length}</div>
                   <div className="stat-label">Approved</div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => r.status === 'Under Review').length}</div>
+                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').toLowerCase().includes('review')).length}</div>
                   <div className="stat-label">Under Review</div>
                 </div>
               </div>
@@ -187,21 +245,38 @@ function Dashboard({ onNavigate }) {
           <div className="notifications-section">
             <div className="section-header">
               <h3>🔔 Notifications</h3>
-              <a href="#clear-all" className="clear-all">Clear All</a>
+              {notifications.length > 0 && (
+                <button 
+                  className="clear-all" 
+                  onClick={handleClearNotifications}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Clear All
+                </button>
+              )}
             </div>
             <div className="notifications-list">
-              {notifications.map((notification) => (
-                <div key={notification.id} className={`notification-item notification-${notification.type}`}>
-                  <div className="notification-icon">
-                    {notification.type === 'success' ? '✓' : 'ℹ'}
+              {notifications.length === 0 ? (
+                <div className="empty-notifications">No notifications</div>
+              ) : (
+                notifications.map((notification) => (
+                  <div key={notification.id} className={`notification-item notification-${notification.type}`}>
+                    <div className="notification-icon">
+                      {notification.type === 'success' ? '✓' : 'ℹ'}
+                    </div>
+                    <div className="notification-content">
+                      <div className="notification-message">{notification.message}</div>
+                      <div className="notification-time">{notification.time}</div>
+                    </div>
+                    <button 
+                      className="notification-close"
+                      onClick={() => handleRemoveNotification(notification.id)}
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div className="notification-content">
-                    <div className="notification-message">{notification.message}</div>
-                    <div className="notification-time">{notification.time}</div>
-                  </div>
-                  <button className="notification-close">✕</button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -707,3 +707,18 @@
     text-align: left;
   }
 }
+
+/* Empty state and loading state styles */
+.empty-state,
+.empty-notifications {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-style: italic;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}

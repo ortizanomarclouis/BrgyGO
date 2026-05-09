@@ -47,7 +47,9 @@ public class DocumentRequestController {
      * Create a new document request
      */
     @PostMapping
-    public ResponseEntity<?> createRequest(@Valid @RequestBody DocumentRequestDTO requestDTO) {
+    public ResponseEntity<?> createRequest(
+            @RequestParam(value = "userId", required = false) Long userId,
+            @Valid @RequestBody DocumentRequestDTO requestDTO) {
         try {
             DocumentRequest request = new DocumentRequest();
             request.setDocumentType(requestDTO.getDocumentType());
@@ -57,13 +59,16 @@ public class DocumentRequestController {
             request.setReferenceNumber("BR-" + System.currentTimeMillis() + "-" + System.nanoTime());
             
             // Get current user (in real implementation, get from security context)
-            Optional<User> user = userService.getUserById(1L); // Placeholder
+            if (userId == null) {
+                userId = 1L; // Placeholder default
+            }
+            Optional<User> user = userService.getUserById(userId);
             if (user.isPresent()) {
                 request.setUser(user.get());
                 DocumentRequest created = documentRequestService.createRequest(request);
                 return ResponseEntity.ok(mapToDTO(created));
             }
-            return ResponseEntity.status(401).body(Map.of("error", "User not authenticated"));
+            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -71,13 +76,14 @@ public class DocumentRequestController {
 
     /**
      * Create a new document request with identity photo upload
-     * Accepts multipart form data with documentType, purpose, and identityPhoto
+     * Accepts multipart form data with documentType, purpose, identityPhoto, and optional userId
      */
     @PostMapping("/with-identity")
     public ResponseEntity<?> createRequestWithIdentity(
             @RequestParam("documentType") String documentType,
             @RequestParam("purpose") String purpose,
-            @RequestParam("identityPhoto") MultipartFile identityPhoto) {
+            @RequestParam("identityPhoto") MultipartFile identityPhoto,
+            @RequestParam(value = "userId", required = false) Long userId) {
         try {
             // Validate inputs
             if (purpose == null || purpose.trim().isEmpty()) {
@@ -97,14 +103,23 @@ public class DocumentRequestController {
             String photoData = supabaseStorageService.uploadFile(identityPhoto, "identity-documents");
             System.out.println("Photo data prepared for storage");
 
-            // Get current user - try to find any available user
-            List<User> allUsers = userService.getAllUsers();
-            if (allUsers.isEmpty()) {
-                return ResponseEntity.status(401).body(Map.of("error", "No users found in system"));
+            // Get current user
+            User user = null;
+            if (userId != null) {
+                Optional<User> userOpt = userService.getUserById(userId);
+                if (userOpt.isPresent()) {
+                    user = userOpt.get();
+                }
             }
             
-            // Use the last (most recently created) user as the requester
-            User user = allUsers.get(allUsers.size() - 1);
+            // Fallback: try to find any available user
+            if (user == null) {
+                List<User> allUsers = userService.getAllUsers();
+                if (allUsers.isEmpty()) {
+                    return ResponseEntity.status(401).body(Map.of("error", "No users found in system"));
+                }
+                user = allUsers.get(allUsers.size() - 1);
+            }
             System.out.println("Using user: " + user.getEmail());
 
             // Create document request with proper initialization
@@ -140,17 +155,25 @@ public class DocumentRequestController {
 
     /**
      * Get all requests for current user
+     * @param userId the user ID (optional - will use from security context in real implementation)
      */
     @GetMapping
-    public ResponseEntity<?> getUserRequests() {
+    public ResponseEntity<?> getUserRequests(@RequestParam(value = "userId", required = false) Long userId) {
         try {
-            // In real implementation, get from security context
-            Optional<User> user = userService.getUserById(1L); // Placeholder
+            // If userId is not provided, try to get from security context (placeholder for now)
+            if (userId == null) {
+                userId = 1L; // Placeholder default
+            }
+            
+            Optional<User> user = userService.getUserById(userId);
             if (user.isPresent()) {
                 List<DocumentRequest> requests = documentRequestService.getUserRequests(user.get().getId());
-                return ResponseEntity.ok(requests.stream().map(this::mapToDTO).collect(Collectors.toList()));
+                return ResponseEntity.ok(Map.of(
+                    "content", requests.stream().map(this::mapToDTO).collect(Collectors.toList()),
+                    "total", requests.size()
+                ));
             }
-            return ResponseEntity.status(401).body(Map.of("error", "User not authenticated"));
+            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

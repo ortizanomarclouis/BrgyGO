@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import './ReportIssue.css';
+import { useAuth } from '../hooks';
 import api from '../hooks/api';
 
 const categories = [
   { value: 'INFRASTRUCTURE', label: 'Infrastructure' },
-  { value: 'SAFETY', label: 'Safety' },
+  { value: 'SAFETY_AND_SECURITY', label: 'Safety' },
   { value: 'SANITATION', label: 'Sanitation' },
-  { value: 'PUBLIC_SERVICE', label: 'Public Service' },
+  { value: 'NOISE_DISTURBANCE', label: 'Noise Disturbance' },
+  { value: 'OTHERS', label: 'Others' },
 ];
 
 const urgencies = [
@@ -16,14 +18,15 @@ const urgencies = [
 ];
 
 function ReportIssue({ onNavigate }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     category: 'INFRASTRUCTURE',
     urgency: 'MEDIUM',
     address: '',
     description: '',
-    latitude: '',
-    longitude: '',
+    proofImage: null,
   });
+  const [imagePreview, setImagePreview] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,6 +34,19 @@ function ReportIssue({ onNavigate }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData({ ...formData, proofImage: file });
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,16 +61,27 @@ function ReportIssue({ onNavigate }) {
 
     setLoading(true);
     try {
-      await api.post('/api/issues', {
-        category: formData.category,
-        urgency: formData.urgency,
-        address: formData.address,
-        description: formData.description,
-        latitude: formData.latitude || null,
-        longitude: formData.longitude || null,
-      });
+      // Create FormData for multipart request
+      const requestData = new FormData();
+      requestData.append('category', formData.category);
+      requestData.append('urgency', formData.urgency);
+      requestData.append('address', formData.address);
+      requestData.append('description', formData.description);
+      
+      // Add user ID if available
+      if (user?.id) {
+        requestData.append('userId', user.id);
+      }
+      
+      // Add image if selected
+      if (formData.proofImage) {
+        requestData.append('proofImage', formData.proofImage);
+      }
+
+      await api.post('/api/issues', requestData);
       setSuccess('Your issue report has been submitted successfully.');
-      setFormData({ category: 'INFRASTRUCTURE', urgency: 'MEDIUM', address: '', description: '', latitude: '', longitude: '' });
+      setFormData({ category: 'INFRASTRUCTURE', urgency: 'MEDIUM', address: '', description: '', latitude: '', longitude: '', proofImage: null });
+      setImagePreview('');
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to submit your issue.');
     } finally {
@@ -111,15 +138,21 @@ function ReportIssue({ onNavigate }) {
             <textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="Describe the problem in detail" />
           </div>
 
-          <div className="form-row small-row">
-            <div className="form-group">
-              <label htmlFor="latitude">Latitude</label>
-              <input id="latitude" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Optional" />
-            </div>
-            <div className="form-group">
-              <label htmlFor="longitude">Longitude</label>
-              <input id="longitude" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Optional" />
-            </div>
+          <div className="form-group">
+            <label htmlFor="proofImage">Proof Image (Optional)</label>
+            <input 
+              id="proofImage" 
+              type="file" 
+              name="proofImage" 
+              accept="image/*"
+              onChange={handleImageChange}
+              className="file-input"
+            />
+            {imagePreview && (
+              <div className="image-preview">
+                <img src={imagePreview} alt="Proof preview" />
+              </div>
+            )}
           </div>
 
           <button type="submit" className="primary-button" disabled={loading}>

@@ -1,10 +1,11 @@
 package edu.cit.ortizano.BrgyGO.dto;
 
+import java.time.LocalDateTime;
+
 import edu.cit.ortizano.BrgyGO.model.IssueCategory;
 import edu.cit.ortizano.BrgyGO.model.IssueStatus;
 import edu.cit.ortizano.BrgyGO.model.UrgencyLevel;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDateTime;
 
 /**
  * DTO for Issue Report
@@ -32,6 +33,8 @@ public class IssueDTO {
     private Double longitude;
     
     private String address;
+    
+    private String proofImageUrl;
     
     private String assignedTo;
     
@@ -125,6 +128,14 @@ public class IssueDTO {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getProofImageUrl() {
+        return proofImageUrl;
+    }
+
+    public void setProofImageUrl(String proofImageUrl) {
+        this.proofImageUrl = proofImageUrl;
     }
 
     public String getAssignedTo() {

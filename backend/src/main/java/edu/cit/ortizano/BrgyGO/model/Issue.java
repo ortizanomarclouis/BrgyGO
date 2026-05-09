@@ -1,7 +1,19 @@
 package edu.cit.ortizano.BrgyGO.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 
 /**
  * Entity for Issue Reports
@@ -36,14 +48,11 @@ public class Issue {
     @Column(name = "tracking_number", unique = true, nullable = false)
     private String trackingNumber;
 
-    @Column(nullable = false)
-    private Double latitude;
-
-    @Column(nullable = false)
-    private Double longitude;
-
     @Column(name = "address")
     private String address;
+
+    @Column(name = "proof_image_url")
+    private String proofImageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to")
@@ -65,12 +74,11 @@ public class Issue {
     public Issue() {
     }
 
-    public Issue(User reportedBy, IssueCategory category, String description, Double latitude, Double longitude) {
+    public Issue(User reportedBy, IssueCategory category, String description) {
         this.reportedBy = reportedBy;
         this.category = category;
         this.description = description;
-        this.latitude = latitude;
-        this.longitude = longitude;
+
         this.trackingNumber = generateTrackingNumber();
     }
 
@@ -78,6 +86,15 @@ public class Issue {
     private String generateTrackingNumber() {
         return "ISS-" + System.currentTimeMillis();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.trackingNumber == null) {
+        this.trackingNumber = "ISS-" + System.currentTimeMillis();
+    }
+        if (this.createdAt == null) this.createdAt = LocalDateTime.now();
+        if (this.updatedAt == null) this.updatedAt = LocalDateTime.now();
+}
 
     // Getters and Setters
     public Long getId() {
@@ -136,21 +153,6 @@ public class Issue {
         this.trackingNumber = trackingNumber;
     }
 
-    public Double getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(Double latitude) {
-        this.latitude = latitude;
-    }
-
-    public Double getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(Double longitude) {
-        this.longitude = longitude;
-    }
 
     public String getAddress() {
         return address;
@@ -158,6 +160,14 @@ public class Issue {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getProofImageUrl() {
+        return proofImageUrl;
+    }
+
+    public void setProofImageUrl(String proofImageUrl) {
+        this.proofImageUrl = proofImageUrl;
     }
 
     public User getAssignedTo() {

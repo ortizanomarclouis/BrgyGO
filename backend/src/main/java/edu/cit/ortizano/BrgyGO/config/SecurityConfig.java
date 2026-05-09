@@ -21,6 +21,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/requests/**").permitAll()
+                .requestMatchers("/api/issues/**").permitAll()
+                .requestMatchers("/api/announcements/**").permitAll()
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers
