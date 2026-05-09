@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import Login from './screens/Login';
-import Register from './screens/Register';
-import Dashboard from './screens/Dashboard';
-import RequestDocument from './screens/RequestDocument';
-import RequestList from './screens/RequestList';
-import ReportIssue from './screens/ReportIssue';
-import Announcements from './screens/Announcements';
-import Profile from './screens/Profile';
+import Login from './features/auth/Login';
+import Register from './features/auth/Register';
+import Dashboard from './features/dashboard/Dashboard';
+import RequestDocument from './features/document-request/RequestDocument';
+import RequestList from './features/document-request/RequestList';
+import ReportIssue from './features/issues/ReportIssue';
+import Announcements from './features/announcements/Announcements';
+import Profile from './features/auth/Profile';
 import { AuthProvider, useAuth } from './hooks';
 
 function AppContent() {
