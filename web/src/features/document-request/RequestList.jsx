@@ -13,7 +13,8 @@ function RequestList({ onNavigate }) {
       setError('');
       try {
         const response = await api.get('/api/requests');
-        setRequests(response.data);
+        const content = response.data?.content;
+        setRequests(Array.isArray(content) ? content : Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         setError(err.response?.data?.error || 'Unable to load your requests.');
       } finally {
@@ -23,6 +24,27 @@ function RequestList({ onNavigate }) {
 
     fetchRequests();
   }, []);
+
+  const formatStatusLabel = (status) => status ? status.replace(/_/g, ' ') : '';
+
+  const downloadCertificate = async (requestId, documentType) => {
+    try {
+      const response = await api.get(`/api/requests/${requestId}/certificate`);
+      const content = response.data?.content || JSON.stringify(response.data, null, 2);
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${documentType || 'document'}-${requestId}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Unable to download document:', err);
+      alert(err.response?.data?.error || 'Unable to download document copy at this time.');
+    }
+  };
 
   return (
     <div className="request-list-page">
@@ -56,8 +78,8 @@ function RequestList({ onNavigate }) {
               <div key={request.id} className="request-card">
                 <div className="request-card-top">
                   <div className="request-type">{request.documentType?.replace(/_/g, ' ')}</div>
-                  <div className={`request-status status-${request.status?.toLowerCase().replace(/\s+/g, '-')}`}>
-                    {request.status}
+                  <div className={`request-status status-${request.status?.toLowerCase().replace(/_/g, '-')}`}>
+                    {formatStatusLabel(request.status)}
                   </div>
                 </div>
                 <div className="request-meta">
@@ -67,6 +89,14 @@ function RequestList({ onNavigate }) {
                 <div className="request-purpose">{request.purpose}</div>
                 <div className="request-footer">
                   <span>Notes: {request.processingNotes || 'Pending review'}</span>
+                  {['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(request.status) && (
+                    <button
+                      className="download-button"
+                      onClick={() => downloadCertificate(request.id, request.documentType?.replace(/_/g, '-'))}
+                    >
+                      Download Copy
+                    </button>
+                  )}
                 </div>
               </div>
             ))

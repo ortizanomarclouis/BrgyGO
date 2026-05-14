@@ -46,6 +46,14 @@ public class IssueService {
     }
 
     /**
+     * Get all issues (staff/admin view)
+     * @return list of issues
+     */
+    public List<Issue> getAllIssues() {
+        return issueRepository.findAll();
+    }
+
+    /**
      * Get a specific issue by ID
      * @param id the issue ID
      * @return the issue or empty

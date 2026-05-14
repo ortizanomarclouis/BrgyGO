@@ -55,7 +55,8 @@ function ReportIssue({ onNavigate }) {
     setSuccess('');
 
     if (!formData.description.trim() || !formData.address.trim()) {
-      setError('Please provide a description and address for the issue.');
+      const message = 'Please provide a description and address for the issue.';
+      setError(message);
       return;
     }
 
@@ -79,11 +80,13 @@ function ReportIssue({ onNavigate }) {
       }
 
       await api.post('/api/issues', requestData);
-      setSuccess('Your issue report has been submitted successfully.');
+      const message = 'Your issue report has been submitted successfully.';
+      setSuccess(message);
       setFormData({ category: 'INFRASTRUCTURE', urgency: 'MEDIUM', address: '', description: '', latitude: '', longitude: '', proofImage: null });
       setImagePreview('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Unable to submit your issue.');
+      const message = err.response?.data?.error || 'Unable to submit your issue.';
+      setError(message);
     } finally {
       setLoading(false);
     }

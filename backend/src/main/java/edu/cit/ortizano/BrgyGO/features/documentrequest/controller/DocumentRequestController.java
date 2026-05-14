@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -182,6 +183,7 @@ public class DocumentRequestController {
     /**
      * Get specific request by ID
      */
+    @Transactional(readOnly = true)
     @GetMapping("/{id}")
     public ResponseEntity<?> getRequest(@PathVariable Long id) {
         try {
@@ -190,6 +192,45 @@ public class DocumentRequestController {
                 return ResponseEntity.ok(mapToDTO(request.get()));
             }
             return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all requests (staff and admin)
+     */
+    @Transactional(readOnly = true)
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllRequests() {
+        try {
+            return ResponseEntity.ok(documentRequestService.getAllRequests().stream().map(this::mapToDTO).collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Generate a document certificate for a request using the existing template
+     */
+    @GetMapping("/{id}/certificate")
+    public ResponseEntity<?> getCertificate(@PathVariable Long id) {
+        try {
+            var certificate = documentRequestService.generateCertificate(id);
+            if (certificate == null) {
+                return ResponseEntity.notFound().build();
+            }
+            String content = certificate.generateContent();
+            certificate.setContent(content);
+            return ResponseEntity.ok(Map.of(
+                "id", id,
+                "documentType", certificate.getDocumentType().name(),
+                "documentTypeLabel", certificate.getDocumentType().toString(),
+                "certificationNumber", certificate.getCertificationNumber(),
+                "issuedBy", certificate.getIssuedBy(),
+                "issuedDate", certificate.getIssuedDate(),
+                "content", certificate.getContent()
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -223,6 +264,7 @@ public class DocumentRequestController {
     /**
      * Get pending requests (staff dashboard)
      */
+    @Transactional(readOnly = true)
     @GetMapping("/pending")
     public ResponseEntity<?> getPendingRequests() {
         try {
@@ -261,6 +303,13 @@ public class DocumentRequestController {
         dto.setIdentityPhotoUrl(request.getIdentityPhotoUrl());
         dto.setReleaseDate(request.getReleaseDate());
         dto.setProcessingNotes(request.getProcessingNotes());
+        dto.setProcessedBy(request.getProcessedBy() != null ? request.getProcessedBy().getFullName() : null);
+        if (request.getUser() != null) {
+            dto.setRequestorId(request.getUser().getId());
+            dto.setRequestorFullName(request.getUser().getFullName());
+            dto.setRequestorEmail(request.getUser().getEmail());
+            dto.setRequestorAddress(request.getUser().getCompleteAddress());
+        }
         dto.setCreatedAt(request.getCreatedAt());
         dto.setUpdatedAt(request.getUpdatedAt());
         return dto;

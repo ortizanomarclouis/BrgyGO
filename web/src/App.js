@@ -10,10 +10,11 @@ import Announcements from './features/announcements/Announcements';
 import Profile from './features/auth/Profile';
 import { AuthProvider, useAuth } from './hooks';
 
+const availableScreens = ['login', 'register', 'dashboard', 'request', 'myrequests', 'report', 'announcements', 'profile'];
+
 function AppContent() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('login');
-  const availableScreens = ['login', 'register', 'dashboard', 'request', 'myrequests', 'report', 'announcements', 'profile'];
 
   const normalizeHash = (hash) => {
     return hash?.replace(/^#/, '') || '';

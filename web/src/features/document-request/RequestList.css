@@ -73,8 +73,29 @@
 }
 
 .request-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
   color: #777;
   font-size: 13px;
+}
+
+.download-button {
+  background: #2f9b44;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.download-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(47, 155, 68, 0.18);
 }
 
 .status-error {
@@ -103,11 +124,12 @@
 }
 
 .request-status {
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .status-approved {
@@ -123,6 +145,21 @@
 .status-submitted {
   background: #e0f2fe;
   color: #0369a1;
+}
+
+.status-completed {
+  background: #c8e6c9;
+  color: #1b5e20;
+}
+
+.status-ready-for-release {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-approved {
+  background: #e9f8ef;
+  color: #237a43;
 }
 
 .status-pending-review {
