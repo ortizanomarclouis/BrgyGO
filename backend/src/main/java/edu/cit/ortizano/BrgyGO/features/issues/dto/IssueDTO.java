@@ -38,6 +38,9 @@ public class IssueDTO {
     
     private String assignedTo;
     
+    private String reportedByName;
+    private String reportedByEmail;
+    
     private LocalDateTime resolutionDate;
     
     private String resolutionNotes;
@@ -144,6 +147,22 @@ public class IssueDTO {
 
     public void setAssignedTo(String assignedTo) {
         this.assignedTo = assignedTo;
+    }
+
+    public String getReportedByName() {
+        return reportedByName;
+    }
+
+    public void setReportedByName(String reportedByName) {
+        this.reportedByName = reportedByName;
+    }
+
+    public String getReportedByEmail() {
+        return reportedByEmail;
+    }
+
+    public void setReportedByEmail(String reportedByEmail) {
+        this.reportedByEmail = reportedByEmail;
     }
 
     public LocalDateTime getResolutionDate() {

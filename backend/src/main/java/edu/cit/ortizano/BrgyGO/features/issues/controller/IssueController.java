@@ -142,6 +142,19 @@ public class IssueController {
     }
 
     /**
+     * Get all issues (staff/admin)
+     */
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllIssues() {
+        try {
+            List<Issue> issues = issueService.getAllIssues();
+            return ResponseEntity.ok(issues.stream().map(this::mapToDTO).collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * Get specific issue by ID
      */
     @GetMapping("/{id}")
@@ -234,6 +247,10 @@ public class IssueController {
         dto.setUrgency(issue.getUrgency());
         dto.setTrackingNumber(issue.getTrackingNumber());
         dto.setAddress(issue.getAddress());
+        dto.setProofImageUrl(issue.getProofImageUrl());
+        dto.setAssignedTo(issue.getAssignedTo() != null ? issue.getAssignedTo().getFullName() : null);
+        dto.setReportedByName(issue.getReportedBy() != null ? issue.getReportedBy().getFullName() : null);
+        dto.setReportedByEmail(issue.getReportedBy() != null ? issue.getReportedBy().getEmail() : null);
         dto.setResolutionNotes(issue.getResolutionNotes());
         dto.setCreatedAt(issue.getCreatedAt());
         dto.setUpdatedAt(issue.getUpdatedAt());

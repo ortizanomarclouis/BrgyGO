@@ -177,6 +177,14 @@ public class DocumentRequestService {
     }
 
     /**
+     * Get all requests (staff/admin view)
+     * @return list of all document requests
+     */
+    public List<DocumentRequest> getAllRequests() {
+        return documentRequestRepository.findAll();
+    }
+
+    /**
      * Get all requests with specific status
      * @param status the status to filter by
      * @return list of requests

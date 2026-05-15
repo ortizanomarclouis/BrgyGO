@@ -10,6 +10,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(180deg, #eef3f7 0%, #ffffff 100%);
+  color: #111827;
 }
 
 .App {

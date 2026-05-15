@@ -65,12 +65,14 @@ function RequestDocument({ onNavigate }) {
     setSuccess('');
 
     if (!formData.purpose.trim()) {
-      setError('Please describe the purpose of your request.');
+      const message = 'Please describe the purpose of your request.';
+      setError(message);
       return;
     }
 
     if (!formData.identityPhoto) {
-      setError('Please upload a photo of a valid ID or residence ID.');
+      const message = 'Please upload a photo of a valid ID or residence ID.';
+      setError(message);
       return;
     }
 
@@ -85,7 +87,8 @@ function RequestDocument({ onNavigate }) {
       setPhotoPreview('');
       setTimeout(() => onNavigate('dashboard'), 1800);
     } else {
-      setError(result.error);
+      const message = result.error || 'Unable to submit request.';
+      setError(message);
     }
   };
 

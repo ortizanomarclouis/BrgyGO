@@ -32,6 +32,11 @@ public class DocumentRequestDTO {
     
     private String processedBy;
     
+    private Long requestorId;
+    private String requestorFullName;
+    private String requestorEmail;
+    private String requestorAddress;
+    
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
@@ -126,6 +131,38 @@ public class DocumentRequestDTO {
 
     public void setProcessedBy(String processedBy) {
         this.processedBy = processedBy;
+    }
+
+    public Long getRequestorId() {
+        return requestorId;
+    }
+
+    public void setRequestorId(Long requestorId) {
+        this.requestorId = requestorId;
+    }
+
+    public String getRequestorFullName() {
+        return requestorFullName;
+    }
+
+    public void setRequestorFullName(String requestorFullName) {
+        this.requestorFullName = requestorFullName;
+    }
+
+    public String getRequestorEmail() {
+        return requestorEmail;
+    }
+
+    public void setRequestorEmail(String requestorEmail) {
+        this.requestorEmail = requestorEmail;
+    }
+
+    public String getRequestorAddress() {
+        return requestorAddress;
+    }
+
+    public void setRequestorAddress(String requestorAddress) {
+        this.requestorAddress = requestorAddress;
     }
 
     public LocalDateTime getCreatedAt() {
