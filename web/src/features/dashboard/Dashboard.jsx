@@ -11,6 +11,7 @@ function Dashboard({ onNavigate }) {
   const [notifications, setNotifications] = useState([]);
   const [staffRequests, setStaffRequests] = useState([]);
   const [staffIssues, setStaffIssues] = useState([]);
+  const [myIssues, setMyIssues] = useState([]);          // FIX 3: resident issue reports
   const [activeStaffTab, setActiveStaffTab] = useState('requests');
   const [certificatePreview, setCertificatePreview] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
@@ -32,6 +33,15 @@ function Dashboard({ onNavigate }) {
 
   const resolveMediaUrl = (url) => {
     if (!url) return null;
+    // FIX: handle base64 stored data (filename|mimetype|base64data format)
+    if (url.includes('|')) {
+      const parts = url.split('|');
+      if (parts.length >= 3) {
+        const mimeType = parts[1];
+        const base64Data = parts[2];
+        return `data:${mimeType};base64,${base64Data}`;
+      }
+    }
     if (url.startsWith('data:') || url.startsWith('http')) {
       return url;
     }
@@ -75,7 +85,7 @@ function Dashboard({ onNavigate }) {
       const previousStamp = storedMeta[announcement.id];
       if (hasSeenAnnouncements) {
         if (!previousStamp) {
-          addNotification(`New announcement published: ${announcement.title}`, 'info');
+          addNotification(`New announcement: ${announcement.title}`, 'info');
         } else if (currentStamp !== previousStamp) {
           addNotification(`Announcement updated: ${announcement.title}`, 'info');
         }
@@ -87,6 +97,7 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(ANNOUNCEMENT_META_KEY, updatedMeta);
   }, [addNotification]);
 
+  // FIX 4: Improved notification logic — notifies on ANY status change, not just approved/completed
   const notifyRequestStatusChanges = useCallback((fetchedRequests) => {
     const REQUEST_STATUS_META_KEY = 'brgygoRequestStatusMeta';
     const storedMeta = getLocalStorageJson(REQUEST_STATUS_META_KEY, {});
@@ -100,19 +111,40 @@ function Dashboard({ onNavigate }) {
       const label = formatStatusLabel(currentStatus);
       const ref = request.referenceNumber || `#${request.id}`;
 
-      if (hasSeenRequests && previousStatus && currentStatus && previousStatus !== currentStatus) {
-        addNotification(`Your request ${ref} is now ${label}`, 'info');
-      } else if (!hasSeenRequests && currentStatus && ['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(currentStatus)) {
-        addNotification(`Your request ${ref} is ${label}`, 'info');
-      }
-
       if (currentStatus) {
+        if (!hasSeenRequests) {
+          // First load — notify about all non-submitted requests so resident knows current state
+          if (currentStatus !== 'SUBMITTED') {
+            addNotification(`Your request ${ref} status: ${label}`, 'info');
+          }
+        } else if (previousStatus && currentStatus && previousStatus !== currentStatus) {
+          // Status changed — always notify
+          addNotification(`Your request ${ref} is now: ${label}`, 'info');
+          // Extra notification for ready-to-download statuses
+          if (['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(currentStatus)) {
+            addNotification(`📄 Your document for ${ref} is ready to download!`, 'success');
+          }
+        }
         updatedMeta[request.id] = currentStatus;
       }
     });
 
     setLocalStorageJson(REQUEST_STATUS_META_KEY, updatedMeta);
   }, [addNotification, formatStatusLabel]);
+
+  // FIX 3: Fetch resident's own issue reports
+  const fetchMyIssues = useCallback(async () => {
+    if (isStaff) return;
+    try {
+      const userId = user?.id;
+      const response = await api.get(`/api/issues${userId ? `?userId=${userId}` : ''}`);
+      const issues = Array.isArray(response.data) ? response.data : [];
+      setMyIssues(issues);
+    } catch (err) {
+      console.log('Could not fetch my issues:', err.message);
+      setMyIssues([]);
+    }
+  }, [isStaff, user]);
 
   // Fetch dashboard data on component mount
   useEffect(() => {
@@ -149,6 +181,11 @@ function Dashboard({ onNavigate }) {
           console.log('Could not fetch announcements:', err.message);
         }
 
+        // FIX 3: Fetch resident's issue reports
+        if (!isStaff) {
+          await fetchMyIssues();
+        }
+
         if (isStaff) {
           await fetchStaffDashboardData();
         }
@@ -160,7 +197,7 @@ function Dashboard({ onNavigate }) {
     };
 
     fetchDashboardData();
-  }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges]);
+  }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges, fetchMyIssues]);
 
   const fetchStaffDashboardData = async () => {
     try {
@@ -281,6 +318,13 @@ function Dashboard({ onNavigate }) {
 
   const handleRemoveNotification = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
+  };
+
+  // FIX 3: Issue status badge color helper
+  const getIssueStatusClass = (status) => {
+    if (!status) return 'status-reported';
+    const s = status.toLowerCase().replace(/_/g, '-');
+    return `status-${s}`;
   };
 
   const userInitial = user?.fullName?.[0]?.toUpperCase() || 'U';
@@ -421,11 +465,11 @@ function Dashboard({ onNavigate }) {
                   recentRequests.map((request) => (
                     <div key={request.id} className="request-item">
                       <div className="request-info">
-                        <div className="request-type">{request.documentType || request.type || 'Document'}</div>
+                        <div className="request-type">{request.documentType?.replace(/_/g, ' ') || request.type || 'Document'}</div>
                         <div className="request-ref">Ref: {request.referenceNumber || request.refNumber}</div>
                       </div>
-                      <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
-                        {request.status}
+                      <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/_/g, '-')}`}>
+                        {formatStatusLabel(request.status)}
                       </div>
                     </div>
                   ))
@@ -468,17 +512,91 @@ function Dashboard({ onNavigate }) {
                   <div className="stat-label">Total Requests</div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').toLowerCase().includes('approved')).length}</div>
+                  <div className="stat-number">{recentRequests.filter(r => ['APPROVED','COMPLETED','READY_FOR_RELEASE'].includes(r.status)).length}</div>
                   <div className="stat-label">Approved</div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').toLowerCase().includes('review')).length}</div>
+                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').includes('REVIEW')).length}</div>
                   <div className="stat-label">Under Review</div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* ===== FIX 3: MY ISSUE REPORTS — Resident Only ===== */}
+          {!isStaff && (
+            <div className="my-issues-section">
+              <div className="card-header" style={{ marginBottom: '16px' }}>
+                <h3>⚠️ My Issue Reports</h3>
+                <button
+                  className="view-all"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => onNavigate('report')}
+                >
+                  Report New Issue
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="status-message">Loading your issue reports...</div>
+              ) : myIssues.length === 0 ? (
+                <div className="dashboard-card" style={{ padding: '24px', textAlign: 'center', color: '#888' }}>
+                  <p>You haven't reported any issues yet.</p>
+                  <button
+                    className="action-btn report-btn"
+                    style={{ display: 'inline-flex', marginTop: '12px', padding: '10px 20px' }}
+                    onClick={() => onNavigate('report')}
+                  >
+                    <span className="action-icon" style={{ fontSize: '18px' }}>⚠️</span>
+                    <span>Report an Issue</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="issue-reports-grid">
+                  {myIssues.map((issue) => (
+                    <div key={issue.id} className="dashboard-card issue-report-card">
+                      <div className="issue-card-top">
+                        <div>
+                          <div className="issue-category-badge">
+                            {issue.category?.replace(/_/g, ' ') || 'Issue'}
+                          </div>
+                          <div className="issue-tracking">
+                            Tracking: {issue.trackingNumber || `#${issue.id}`}
+                          </div>
+                        </div>
+                        <div className={`issue-status-badge ${getIssueStatusClass(issue.status)}`}>
+                          {formatStatusLabel(issue.status)}
+                        </div>
+                      </div>
+
+                      <div className="issue-description">{issue.description}</div>
+
+                      {issue.address && (
+                        <div className="issue-address">📍 {issue.address}</div>
+                      )}
+
+                      <div className="issue-footer">
+                        <span className={`issue-urgency urgency-${(issue.urgency || 'medium').toLowerCase()}`}>
+                          {issue.urgency || 'MEDIUM'} urgency
+                        </span>
+                        <span className="issue-date">
+                          {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+
+                      {issue.resolutionNotes && (
+                        <div className="issue-resolution-notes">
+                          <strong>Staff notes:</strong> {issue.resolutionNotes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Staff Control Center */}
           {isStaff && (
             <div className="staff-dashboard-section">
               <div className="section-header staff-header">
@@ -507,11 +625,15 @@ function Dashboard({ onNavigate }) {
                     ) : (
                       staffRequests.map((request) => (
                         <div key={request.id} className="staff-item staff-request-item">
-                              <div className="staff-item-row">
+                          <div className="staff-item-row">
                             <div>
-                              <div className="staff-item-title">{request.documentType || request.type || 'Document Request'}</div>
-                              <div className="staff-item-meta">Requested by {request.requestorFullName || request.requestorId || 'Resident'}</div>
+                              <div className="staff-item-title">{request.documentType?.replace(/_/g, ' ') || 'Document Request'}</div>
+                              {/* FIX 2: Display requestor name correctly */}
+                              <div className="staff-item-meta">
+                                Requested by: <strong>{request.requestorFullName || 'N/A'}</strong>
+                              </div>
                               <div className="staff-item-meta">Status: {formatStatusLabel(request.status)}</div>
+                              <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
                             </div>
                             <div className="staff-actions">
                               <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>
@@ -529,12 +651,12 @@ function Dashboard({ onNavigate }) {
                             </div>
                           </div>
                           <div className="staff-item-detail">
-                            <div>Requestor: {request.requestorFullName || 'N/A'}</div>
                             <div>Email: {request.requestorEmail || 'N/A'}</div>
                             <div>Address: {request.requestorAddress || 'N/A'}</div>
+                            <div>Purpose: {request.purpose || 'N/A'}</div>
                             {request.identityPhotoUrl && (
                               <div className="staff-item-image">
-                                <strong>Requested identity photo:</strong>
+                                <strong>Identity photo submitted:</strong>
                                 <img src={resolveMediaUrl(request.identityPhotoUrl)} alt="Identity" />
                               </div>
                             )}
@@ -552,9 +674,18 @@ function Dashboard({ onNavigate }) {
                         <div key={issue.id} className="staff-item staff-issue-item">
                           <div className="staff-item-row">
                             <div>
-                              <div className="staff-item-title">{issue.title || 'Issue Report'}</div>
-                              <div className="staff-item-meta">Raised by {issue.reporterFullName || issue.reporterId || 'Resident'}</div>
+                              <div className="staff-item-title">
+                                {issue.category?.replace(/_/g, ' ') || 'Issue Report'}
+                              </div>
+                              {/* FIX 2: Use correct field names from IssueDTO */}
+                              <div className="staff-item-meta">
+                                Raised by: <strong>{issue.reportedByName || issue.reporterFullName || 'N/A'}</strong>
+                              </div>
+                              <div className="staff-item-meta">
+                                Email: {issue.reportedByEmail || issue.reporterEmail || 'N/A'}
+                              </div>
                               <div className="staff-item-meta">Status: {formatStatusLabel(issue.status)}</div>
+                              <div className="staff-item-meta">Tracking: {issue.trackingNumber || `#${issue.id}`}</div>
                             </div>
                             <div className="staff-actions">
                               <button onClick={() => handleIssueStatusChange(issue.id, 'IN_PROGRESS')}>
@@ -566,8 +697,9 @@ function Dashboard({ onNavigate }) {
                             </div>
                           </div>
                           <div className="staff-item-detail">
-                            <div>Description: {issue.description || issue.details || 'No details provided'}</div>
-                            <div>Reporter: {issue.reporterFullName || 'N/A'}</div>
+                            <div>Description: {issue.description || 'No details provided'}</div>
+                            <div>Address: {issue.address || 'N/A'}</div>
+                            <div>Urgency: {issue.urgency || 'N/A'}</div>
                             {issue.proofImageUrl && (
                               <div className="staff-item-image">
                                 <strong>Proof image:</strong>
