@@ -3,15 +3,26 @@ import './Dashboard.css';
 import { useAuth } from '../../hooks';
 import api from '../../hooks/api';
 
+// Notifications are stored in localStorage under this key so they persist across sessions
+const NOTIFICATIONS_STORAGE_KEY = 'brgygoNotifications';
+
 function Dashboard({ onNavigate }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [recentRequests, setRecentRequests] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(() => {
+    // Load persisted notifications on first render
+    try {
+      const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [staffRequests, setStaffRequests] = useState([]);
   const [staffIssues, setStaffIssues] = useState([]);
-  const [myIssues, setMyIssues] = useState([]);          // FIX 3: resident issue reports
+  const [myIssues, setMyIssues] = useState([]);
   const [activeStaffTab, setActiveStaffTab] = useState('requests');
   const [certificatePreview, setCertificatePreview] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
@@ -19,12 +30,24 @@ function Dashboard({ onNavigate }) {
 
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
 
+  // Persist notifications to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+    } catch {
+      // ignore storage errors
+    }
+  }, [notifications]);
+
   const addNotification = useCallback((message, type = 'success') => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    setNotifications((current) => [
-      { id, message, type, time: new Date().toLocaleTimeString() },
-      ...current,
-    ]);
+    setNotifications((current) => {
+      const updated = [
+        { id, message, type, time: new Date().toLocaleTimeString() },
+        ...current,
+      ];
+      return updated;
+    });
   }, []);
 
   const formatStatusLabel = useCallback((status) => {
@@ -33,7 +56,6 @@ function Dashboard({ onNavigate }) {
 
   const resolveMediaUrl = (url) => {
     if (!url) return null;
-    // FIX: handle base64 stored data (filename|mimetype|base64data format)
     if (url.includes('|')) {
       const parts = url.split('|');
       if (parts.length >= 3) {
@@ -97,7 +119,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(ANNOUNCEMENT_META_KEY, updatedMeta);
   }, [addNotification]);
 
-  // FIX 4: Improved notification logic — notifies on ANY status change, not just approved/completed
   const notifyRequestStatusChanges = useCallback((fetchedRequests) => {
     const REQUEST_STATUS_META_KEY = 'brgygoRequestStatusMeta';
     const storedMeta = getLocalStorageJson(REQUEST_STATUS_META_KEY, {});
@@ -113,14 +134,11 @@ function Dashboard({ onNavigate }) {
 
       if (currentStatus) {
         if (!hasSeenRequests) {
-          // First load — notify about all non-submitted requests so resident knows current state
           if (currentStatus !== 'SUBMITTED') {
             addNotification(`Your request ${ref} status: ${label}`, 'info');
           }
         } else if (previousStatus && currentStatus && previousStatus !== currentStatus) {
-          // Status changed — always notify
           addNotification(`Your request ${ref} is now: ${label}`, 'info');
-          // Extra notification for ready-to-download statuses
           if (['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(currentStatus)) {
             addNotification(`📄 Your document for ${ref} is ready to download!`, 'success');
           }
@@ -132,7 +150,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(REQUEST_STATUS_META_KEY, updatedMeta);
   }, [addNotification, formatStatusLabel]);
 
-  // FIX 3: Fetch resident's own issue reports
   const fetchMyIssues = useCallback(async () => {
     if (isStaff) return;
     try {
@@ -146,13 +163,11 @@ function Dashboard({ onNavigate }) {
     }
   }, [isStaff, user]);
 
-  // Fetch dashboard data on component mount
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch recent document requests
+
         try {
           const userId = user?.id;
           const requestsResponse = await api.get(`/api/requests${userId ? `?userId=${userId}` : ''}`);
@@ -166,8 +181,7 @@ function Dashboard({ onNavigate }) {
         } catch (err) {
           console.log('Could not fetch requests:', err.message);
         }
-        
-        // Fetch announcements
+
         try {
           const announcementsResponse = await api.get('/api/announcements');
           if (announcementsResponse.data && announcementsResponse.data.content) {
@@ -181,7 +195,6 @@ function Dashboard({ onNavigate }) {
           console.log('Could not fetch announcements:', err.message);
         }
 
-        // FIX 3: Fetch resident's issue reports
         if (!isStaff) {
           await fetchMyIssues();
         }
@@ -267,9 +280,7 @@ function Dashboard({ onNavigate }) {
   };
 
   const handleDownloadCertificate = () => {
-    if (!certificatePreview) {
-      return;
-    }
+    if (!certificatePreview) return;
     const blob = new Blob([certificatePreview], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -312,15 +323,16 @@ function Dashboard({ onNavigate }) {
     }
   };
 
+  // Remove ALL notifications (clear all button)
   const handleClearNotifications = () => {
     setNotifications([]);
   };
 
+  // Remove a single notification
   const handleRemoveNotification = (id) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+    setNotifications((current) => current.filter((n) => n.id !== id));
   };
 
-  // FIX 3: Issue status badge color helper
   const getIssueStatusClass = (status) => {
     if (!status) return 'status-reported';
     const s = status.toLowerCase().replace(/_/g, '-');
@@ -378,8 +390,8 @@ function Dashboard({ onNavigate }) {
           </div>
 
           <div className="header-right">
-            <button 
-              className="user-avatar" 
+            <button
+              className="user-avatar"
               onClick={() => onNavigate('profile')}
               title="Go to Profile"
             >
@@ -394,7 +406,7 @@ function Dashboard({ onNavigate }) {
             <p>Manage your barangay services efficiently</p>
           </div>
 
-          {/* Quick Actions Section */}
+          {/* Quick Actions — shown for ALL roles */}
           <div className="quick-actions-section">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
@@ -448,82 +460,84 @@ function Dashboard({ onNavigate }) {
             </div>
           </div>
 
-          {/* Main Dashboard Grid */}
-          <div className="dashboard-grid">
-            {/* Recent Requests Card */}
-            <div className="dashboard-card requests-card">
-              <div className="card-header">
-                <h3>📋 My Recent Requests</h3>
-                <a href="#view-all" className="view-all" onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
-              </div>
-              <div className="card-content">
-                {loading ? (
-                  <div className="loading-state">Loading...</div>
-                ) : recentRequests.length === 0 ? (
-                  <div className="empty-state">No requests yet</div>
-                ) : (
-                  recentRequests.map((request) => (
-                    <div key={request.id} className="request-item">
-                      <div className="request-info">
-                        <div className="request-type">{request.documentType?.replace(/_/g, ' ') || request.type || 'Document'}</div>
-                        <div className="request-ref">Ref: {request.referenceNumber || request.refNumber}</div>
-                      </div>
-                      <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/_/g, '-')}`}>
-                        {formatStatusLabel(request.status)}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Announcements Card */}
-            <div className="dashboard-card announcements-card">
-              <div className="card-header">
-                <h3>📢 Latest Announcements</h3>
-              </div>
-              <div className="card-content announcements-list">
-                {loading ? (
-                  <div className="loading-state">Loading...</div>
-                ) : announcements.length === 0 ? (
-                  <div className="empty-state">No announcements</div>
-                ) : (
-                  announcements.map((announcement) => (
-                    <div key={announcement.id} className="announcement-item">
-                      <div className="announcement-title">{announcement.title}</div>
-                      <div className="announcement-desc">{announcement.description}</div>
-                      <div className="announcement-date">
-                        {announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString() : announcement.date}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Statistics Card */}
-            <div className="dashboard-card stats-card">
-              <div className="card-header">
-                <h3>📊 Your Activity</h3>
-              </div>
-              <div className="card-content stats-content">
-                <div className="stat-item">
-                  <div className="stat-number">{recentRequests.length}</div>
-                  <div className="stat-label">Total Requests</div>
+          {/* Dashboard Grid — RESIDENTS ONLY (hidden for staff/admin) */}
+          {!isStaff && (
+            <div className="dashboard-grid">
+              {/* Recent Requests Card */}
+              <div className="dashboard-card requests-card">
+                <div className="card-header">
+                  <h3>📋 My Recent Requests</h3>
+                  <a href="#view-all" className="view-all" onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
                 </div>
-                <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => ['APPROVED','COMPLETED','READY_FOR_RELEASE'].includes(r.status)).length}</div>
-                  <div className="stat-label">Approved</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-number">{recentRequests.filter(r => (r.status || '').includes('REVIEW')).length}</div>
-                  <div className="stat-label">Under Review</div>
+                <div className="card-content">
+                  {loading ? (
+                    <div className="loading-state">Loading...</div>
+                  ) : recentRequests.length === 0 ? (
+                    <div className="empty-state">No requests yet</div>
+                  ) : (
+                    recentRequests.map((request) => (
+                      <div key={request.id} className="request-item">
+                        <div className="request-info">
+                          <div className="request-type">{request.documentType?.replace(/_/g, ' ') || request.type || 'Document'}</div>
+                          <div className="request-ref">Ref: {request.referenceNumber || request.refNumber}</div>
+                        </div>
+                        <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/_/g, '-')}`}>
+                          {formatStatusLabel(request.status)}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* ===== FIX 3: MY ISSUE REPORTS — Resident Only ===== */}
+              {/* Announcements Card */}
+              <div className="dashboard-card announcements-card">
+                <div className="card-header">
+                  <h3>📢 Latest Announcements</h3>
+                </div>
+                <div className="card-content announcements-list">
+                  {loading ? (
+                    <div className="loading-state">Loading...</div>
+                  ) : announcements.length === 0 ? (
+                    <div className="empty-state">No announcements</div>
+                  ) : (
+                    announcements.map((announcement) => (
+                      <div key={announcement.id} className="announcement-item">
+                        <div className="announcement-title">{announcement.title}</div>
+                        <div className="announcement-desc">{announcement.description}</div>
+                        <div className="announcement-date">
+                          {announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString() : announcement.date}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Statistics Card */}
+              <div className="dashboard-card stats-card">
+                <div className="card-header">
+                  <h3>📊 Your Activity</h3>
+                </div>
+                <div className="card-content stats-content">
+                  <div className="stat-item">
+                    <div className="stat-number">{recentRequests.length}</div>
+                    <div className="stat-label">Total Requests</div>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-number">{recentRequests.filter(r => ['APPROVED','COMPLETED','READY_FOR_RELEASE'].includes(r.status)).length}</div>
+                    <div className="stat-label">Approved</div>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-number">{recentRequests.filter(r => (r.status || '').includes('REVIEW')).length}</div>
+                    <div className="stat-label">Under Review</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* My Issue Reports — RESIDENTS ONLY */}
           {!isStaff && (
             <div className="my-issues-section">
               <div className="card-header" style={{ marginBottom: '16px' }}>
@@ -596,7 +610,7 @@ function Dashboard({ onNavigate }) {
             </div>
           )}
 
-          {/* Staff Control Center */}
+          {/* Staff Control Center — STAFF/ADMIN ONLY */}
           {isStaff && (
             <div className="staff-dashboard-section">
               <div className="section-header staff-header">
@@ -628,7 +642,6 @@ function Dashboard({ onNavigate }) {
                           <div className="staff-item-row">
                             <div>
                               <div className="staff-item-title">{request.documentType?.replace(/_/g, ' ') || 'Document Request'}</div>
-                              {/* FIX 2: Display requestor name correctly */}
                               <div className="staff-item-meta">
                                 Requested by: <strong>{request.requestorFullName || 'N/A'}</strong>
                               </div>
@@ -677,7 +690,6 @@ function Dashboard({ onNavigate }) {
                               <div className="staff-item-title">
                                 {issue.category?.replace(/_/g, ' ') || 'Issue Report'}
                               </div>
-                              {/* FIX 2: Use correct field names from IssueDTO */}
                               <div className="staff-item-meta">
                                 Raised by: <strong>{issue.reportedByName || issue.reporterFullName || 'N/A'}</strong>
                               </div>
@@ -730,13 +742,13 @@ function Dashboard({ onNavigate }) {
             </div>
           )}
 
-          {/* Notifications Section */}
+          {/* Notifications — shown for ALL roles, persisted in localStorage */}
           <div className="notifications-section">
             <div className="section-header">
               <h3>🔔 Notifications</h3>
               {notifications.length > 0 && (
-                <button 
-                  className="clear-all" 
+                <button
+                  className="clear-all"
                   onClick={handleClearNotifications}
                   style={{ cursor: 'pointer' }}
                 >
@@ -757,9 +769,11 @@ function Dashboard({ onNavigate }) {
                       <div className="notification-message">{notification.message}</div>
                       <div className="notification-time">{notification.time}</div>
                     </div>
-                    <button 
+                    {/* Individual remove button — click ✕ to dismiss one notification */}
+                    <button
                       className="notification-close"
                       onClick={() => handleRemoveNotification(notification.id)}
+                      title="Dismiss"
                     >
                       ✕
                     </button>
