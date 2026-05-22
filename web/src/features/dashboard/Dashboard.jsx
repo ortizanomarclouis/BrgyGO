@@ -1,25 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../../hooks';
 import api from '../../hooks/api';
-
-// Notifications are stored in localStorage under this key so they persist across sessions
-const NOTIFICATIONS_STORAGE_KEY = 'brgygoNotifications';
 
 function Dashboard({ onNavigate }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [recentRequests, setRecentRequests] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [notifications, setNotifications] = useState(() => {
-    // Load persisted notifications on first render
-    try {
-      const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [notifications, setNotifications] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+
   const [staffRequests, setStaffRequests] = useState([]);
   const [staffIssues, setStaffIssues] = useState([]);
   const [myIssues, setMyIssues] = useState([]);
@@ -30,24 +22,44 @@ function Dashboard({ onNavigate }) {
 
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
 
-  // Persist notifications to localStorage whenever they change
+  // Per-user notification storage key
+  const NOTIF_KEY = `brgygoNotifications_${user?.id || 'guest'}`;
+
+  // Load notifications for this specific user when user changes
   useEffect(() => {
     try {
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      const stored = localStorage.getItem(NOTIF_KEY);
+      setNotifications(stored ? JSON.parse(stored) : []);
     } catch {
-      // ignore storage errors
+      setNotifications([]);
     }
-  }, [notifications]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Persist notifications to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
+    } catch {}
+  }, [notifications, NOTIF_KEY]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const addNotification = useCallback((message, type = 'success') => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    setNotifications((current) => {
-      const updated = [
-        { id, message, type, time: new Date().toLocaleTimeString() },
-        ...current,
-      ];
-      return updated;
-    });
+    setNotifications((current) => [
+      { id, message, type, time: new Date().toLocaleTimeString() },
+      ...current,
+    ]);
   }, []);
 
   const formatStatusLabel = useCallback((status) => {
@@ -58,87 +70,64 @@ function Dashboard({ onNavigate }) {
     if (!url) return null;
     if (url.includes('|')) {
       const parts = url.split('|');
-      if (parts.length >= 3) {
-        const mimeType = parts[1];
-        const base64Data = parts[2];
-        return `data:${mimeType};base64,${base64Data}`;
-      }
+      if (parts.length >= 3) return `data:${parts[1]};base64,${parts[2]}`;
     }
-    if (url.startsWith('data:') || url.startsWith('http')) {
-      return url;
-    }
+    if (url.startsWith('data:') || url.startsWith('http')) return url;
     return `${api.defaults.baseURL}${url}`;
   };
 
   const getLocalStorageJson = (key, defaultValue) => {
-    if (typeof window === 'undefined') return defaultValue;
     try {
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
+    } catch { return defaultValue; }
   };
 
   const setLocalStorageJson = (key, value) => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // ignore localStorage failures
-    }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   };
 
+  // ── RESIDENT: notify when announcement is new/updated ──
   const notifyAnnouncementChanges = useCallback((fetchedAnnouncements) => {
-    const ANNOUNCEMENT_META_KEY = 'brgygoAnnouncementMeta';
-    const storedMeta = getLocalStorageJson(ANNOUNCEMENT_META_KEY, {});
-    const hasSeenAnnouncements = Object.keys(storedMeta).length > 0;
+    const META_KEY = `brgygoAnnouncementMeta_${user?.id}`;
+    const storedMeta = getLocalStorageJson(META_KEY, {});
+    const hasSeenBefore = Object.keys(storedMeta).length > 0;
     const updatedMeta = { ...storedMeta };
-
-    (fetchedAnnouncements || []).forEach((announcement) => {
-      if (!announcement?.id) return;
-      const currentStamp = announcement.updatedAt
-        ? new Date(announcement.updatedAt).toISOString()
-        : announcement.createdAt
-        ? new Date(announcement.createdAt).toISOString()
-        : null;
+    (fetchedAnnouncements || []).forEach((a) => {
+      if (!a?.id) return;
+      const currentStamp = a.updatedAt
+        ? new Date(a.updatedAt).toISOString()
+        : a.createdAt ? new Date(a.createdAt).toISOString() : null;
       if (!currentStamp) return;
-
-      const previousStamp = storedMeta[announcement.id];
-      if (hasSeenAnnouncements) {
-        if (!previousStamp) {
-          addNotification(`New announcement: ${announcement.title}`, 'info');
-        } else if (currentStamp !== previousStamp) {
-          addNotification(`Announcement updated: ${announcement.title}`, 'info');
-        }
+      const prev = storedMeta[a.id];
+      if (hasSeenBefore) {
+        if (!prev) addNotification(`📢 New announcement: ${a.title}`, 'info');
+        else if (currentStamp !== prev) addNotification(`📢 Announcement updated: ${a.title}`, 'info');
       }
-
-      updatedMeta[announcement.id] = currentStamp;
+      updatedMeta[a.id] = currentStamp;
     });
+    setLocalStorageJson(META_KEY, updatedMeta);
+  }, [addNotification, user?.id]);
 
-    setLocalStorageJson(ANNOUNCEMENT_META_KEY, updatedMeta);
-  }, [addNotification]);
-
+  // ── RESIDENT: notify when their document request status changes ──
   const notifyRequestStatusChanges = useCallback((fetchedRequests) => {
-    const REQUEST_STATUS_META_KEY = 'brgygoRequestStatusMeta';
-    const storedMeta = getLocalStorageJson(REQUEST_STATUS_META_KEY, {});
-    const hasSeenRequests = Object.keys(storedMeta).length > 0;
+    const META_KEY = `brgygoRequestStatusMeta_${user?.id}`;
+    const storedMeta = getLocalStorageJson(META_KEY, {});
+    const hasSeenBefore = Object.keys(storedMeta).length > 0;
     const updatedMeta = { ...storedMeta };
-
     (fetchedRequests || []).forEach((request) => {
       if (!request?.id) return;
       const currentStatus = request.status?.toString();
       const previousStatus = storedMeta[request.id];
       const label = formatStatusLabel(currentStatus);
       const ref = request.referenceNumber || `#${request.id}`;
-
       if (currentStatus) {
-        if (!hasSeenRequests) {
+        if (!hasSeenBefore) {
           if (currentStatus !== 'SUBMITTED') {
-            addNotification(`Your request ${ref} status: ${label}`, 'info');
+            addNotification(`📋 Your request ${ref} status: ${label}`, 'info');
           }
-        } else if (previousStatus && currentStatus && previousStatus !== currentStatus) {
-          addNotification(`Your request ${ref} is now: ${label}`, 'info');
+        } else if (previousStatus && currentStatus !== previousStatus) {
+          addNotification(`📋 Your request ${ref} is now: ${label}`, 'info');
           if (['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(currentStatus)) {
             addNotification(`📄 Your document for ${ref} is ready to download!`, 'success');
           }
@@ -146,10 +135,73 @@ function Dashboard({ onNavigate }) {
         updatedMeta[request.id] = currentStatus;
       }
     });
+    setLocalStorageJson(META_KEY, updatedMeta);
+  }, [addNotification, formatStatusLabel, user?.id]);
 
-    setLocalStorageJson(REQUEST_STATUS_META_KEY, updatedMeta);
-  }, [addNotification, formatStatusLabel]);
+  // ── RESIDENT: notify when their issue status changes ──
+  const notifyIssueStatusChanges = useCallback((fetchedIssues) => {
+    const META_KEY = `brgygoIssueStatusMeta_${user?.id}`;
+    const storedMeta = getLocalStorageJson(META_KEY, {});
+    const hasSeenBefore = Object.keys(storedMeta).length > 0;
+    const updatedMeta = { ...storedMeta };
+    (fetchedIssues || []).forEach((issue) => {
+      if (!issue?.id) return;
+      const currentStatus = issue.status?.toString();
+      const previousStatus = storedMeta[issue.id];
+      const label = formatStatusLabel(currentStatus);
+      const ref = issue.trackingNumber || `#${issue.id}`;
+      if (currentStatus) {
+        if (!hasSeenBefore) {
+          // First time seeing — only notify if already actioned
+          if (!['REPORTED'].includes(currentStatus)) {
+            addNotification(`⚠️ Your issue ${ref} status: ${label}`, 'info');
+          }
+        } else if (previousStatus && currentStatus !== previousStatus) {
+          addNotification(`⚠️ Your issue ${ref} is now: ${label}`, 'info');
+        }
+        updatedMeta[issue.id] = currentStatus;
+      }
+    });
+    setLocalStorageJson(META_KEY, updatedMeta);
+  }, [addNotification, formatStatusLabel, user?.id]);
 
+  // ── STAFF: notify when new document requests or issue reports come in ──
+  const notifyStaffNewActivity = useCallback((fetchedRequests, fetchedIssues) => {
+    const REQ_META_KEY = 'brgygoStaffRequestMeta';
+    const ISSUE_META_KEY = 'brgygoStaffIssueMeta';
+
+    const storedReqMeta = getLocalStorageJson(REQ_META_KEY, {});
+    const hasSeenRequests = Object.keys(storedReqMeta).length > 0;
+    const updatedReqMeta = { ...storedReqMeta };
+
+    (fetchedRequests || []).forEach((req) => {
+      if (!req?.id) return;
+      if (hasSeenRequests && !storedReqMeta[req.id]) {
+        const name = req.requestorFullName || 'A resident';
+        const type = req.documentType?.replace(/_/g, ' ') || 'document';
+        addNotification(`📋 ${name} requested: ${type}`, 'info');
+      }
+      updatedReqMeta[req.id] = true;
+    });
+    setLocalStorageJson(REQ_META_KEY, updatedReqMeta);
+
+    const storedIssueMeta = getLocalStorageJson(ISSUE_META_KEY, {});
+    const hasSeenIssues = Object.keys(storedIssueMeta).length > 0;
+    const updatedIssueMeta = { ...storedIssueMeta };
+
+    (fetchedIssues || []).forEach((issue) => {
+      if (!issue?.id) return;
+      if (hasSeenIssues && !storedIssueMeta[issue.id]) {
+        const name = issue.reportedByName || 'A resident';
+        const cat = issue.category?.replace(/_/g, ' ') || 'issue';
+        addNotification(`⚠️ ${name} reported: ${cat}`, 'info');
+      }
+      updatedIssueMeta[issue.id] = true;
+    });
+    setLocalStorageJson(ISSUE_META_KEY, updatedIssueMeta);
+  }, [addNotification]);
+
+  // ── Fetch residents own issues ──
   const fetchMyIssues = useCallback(async () => {
     if (isStaff) return;
     try {
@@ -157,75 +209,60 @@ function Dashboard({ onNavigate }) {
       const response = await api.get(`/api/issues${userId ? `?userId=${userId}` : ''}`);
       const issues = Array.isArray(response.data) ? response.data : [];
       setMyIssues(issues);
-    } catch (err) {
-      console.log('Could not fetch my issues:', err.message);
-      setMyIssues([]);
+      notifyIssueStatusChanges(issues);
+    } catch { setMyIssues([]); }
+  }, [isStaff, user, notifyIssueStatusChanges]);
+
+  // ── Fetch staff data and check for new activity ──
+  const fetchStaffDashboardData = useCallback(async (shouldNotify = false) => {
+    try {
+      const [reqRes, issueRes] = await Promise.all([
+        api.get('/api/requests/all'),
+        api.get('/api/issues/all'),
+      ]);
+      const requests = reqRes.data || [];
+      const issues = issueRes.data || [];
+      setStaffRequests(Array.isArray(requests) ? requests.filter(r =>
+        ['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED'].includes(r.status)
+      ) : []);
+      setStaffIssues(Array.isArray(issues) ? issues : []);
+      if (shouldNotify) notifyStaffNewActivity(requests, issues);
+    } catch {
+      setStaffRequests([]);
+      setStaffIssues([]);
     }
-  }, [isStaff, user]);
+  }, [notifyStaffNewActivity]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-
+        // Fetch requests
         try {
           const userId = user?.id;
-          const requestsResponse = await api.get(`/api/requests${userId ? `?userId=${userId}` : ''}`);
-          if (requestsResponse.data && requestsResponse.data.content) {
-            const fetchedRequests = requestsResponse.data.content.slice(0, 3);
-            setRecentRequests(fetchedRequests);
-            if (!isStaff) {
-              notifyRequestStatusChanges(fetchedRequests);
-            }
+          const res = await api.get(`/api/requests${userId ? `?userId=${userId}` : ''}`);
+          if (res.data?.content) {
+            const fetched = res.data.content.slice(0, 3);
+            setRecentRequests(fetched);
+            if (!isStaff) notifyRequestStatusChanges(fetched);
           }
-        } catch (err) {
-          console.log('Could not fetch requests:', err.message);
-        }
-
+        } catch {}
+        // Fetch announcements
         try {
-          const announcementsResponse = await api.get('/api/announcements');
-          if (announcementsResponse.data && announcementsResponse.data.content) {
-            const fetchedAnnouncements = announcementsResponse.data.content.slice(0, 3);
-            setAnnouncements(fetchedAnnouncements);
-            if (!isStaff) {
-              notifyAnnouncementChanges(fetchedAnnouncements);
-            }
+          const res = await api.get('/api/announcements');
+          if (res.data?.content) {
+            const fetched = res.data.content.slice(0, 3);
+            setAnnouncements(fetched);
+            if (!isStaff) notifyAnnouncementChanges(fetched);
           }
-        } catch (err) {
-          console.log('Could not fetch announcements:', err.message);
-        }
-
-        if (!isStaff) {
-          await fetchMyIssues();
-        }
-
-        if (isStaff) {
-          await fetchStaffDashboardData();
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
+        } catch {}
+        if (!isStaff) await fetchMyIssues();
+        if (isStaff) await fetchStaffDashboardData(true);
+      } catch {}
+      finally { setLoading(false); }
     };
-
     fetchDashboardData();
-  }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges, fetchMyIssues]);
-
-  const fetchStaffDashboardData = async () => {
-    try {
-      const [requestsResponse, issuesResponse] = await Promise.all([
-        api.get('/api/requests/pending'),
-        api.get('/api/issues/all'),
-      ]);
-      setStaffRequests(requestsResponse.data || []);
-      setStaffIssues(issuesResponse.data || []);
-    } catch (err) {
-      console.error('Could not fetch staff dashboard data:', err.message);
-      setStaffRequests([]);
-      setStaffIssues([]);
-    }
-  };
+  }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges, fetchMyIssues, fetchStaffDashboardData]);
 
   const handleRequestStatusChange = async (requestId, status) => {
     try {
@@ -233,15 +270,14 @@ function Dashboard({ onNavigate }) {
         status,
         notes: `Status changed to ${formatStatusLabel(status)} by staff`,
       });
-      const message = `Request ${requestId} marked ${formatStatusLabel(status)}`;
-      setStaffMessage(message);
-      addNotification(message, 'success');
-      fetchStaffDashboardData();
+      const msg = `Request ${requestId} marked ${formatStatusLabel(status)}`;
+      setStaffMessage(msg);
+      addNotification(`📋 ${msg}`, 'success');
+      fetchStaffDashboardData(false);
     } catch (err) {
-      console.error('Error updating request status:', err);
-      const message = err.response?.data?.error || 'Unable to update request status.';
-      setStaffMessage(message);
-      addNotification(message, 'info');
+      const msg = err.response?.data?.error || 'Unable to update request status.';
+      setStaffMessage(msg);
+      addNotification(msg, 'info');
     }
   };
 
@@ -251,31 +287,29 @@ function Dashboard({ onNavigate }) {
         status,
         notes: `Status changed to ${formatStatusLabel(status)} by staff`,
       });
-      const message = `Issue ${issueId} marked ${formatStatusLabel(status)}`;
-      setStaffMessage(message);
-      addNotification(message, 'success');
-      fetchStaffDashboardData();
+      const msg = `Issue ${issueId} marked ${formatStatusLabel(status)}`;
+      setStaffMessage(msg);
+      addNotification(`⚠️ ${msg}`, 'success');
+      fetchStaffDashboardData(false);
     } catch (err) {
-      console.error('Error updating issue status:', err);
-      const message = err.response?.data?.error || 'Unable to update issue status.';
-      setStaffMessage(message);
-      addNotification(message, 'info');
+      const msg = err.response?.data?.error || 'Unable to update issue status.';
+      setStaffMessage(msg);
+      addNotification(msg, 'info');
     }
   };
 
   const handleGenerateDocument = async (requestId) => {
     try {
-      const response = await api.get(`/api/requests/${requestId}/certificate`);
-      const previewText = response.data?.content || JSON.stringify(response.data, null, 2);
+      const res = await api.get(`/api/requests/${requestId}/certificate`);
+      const previewText = res.data?.content || JSON.stringify(res.data, null, 2);
       setCertificatePreview(previewText);
-      const message = `Soft copy ready for request ${requestId}`;
-      setStaffMessage(message);
-      addNotification(message, 'success');
+      const msg = `Soft copy ready for request ${requestId}`;
+      setStaffMessage(msg);
+      addNotification(`📄 ${msg}`, 'success');
     } catch (err) {
-      console.error('Error generating certificate:', err);
-      const message = err.response?.data?.error || 'Unable to generate document from template.';
-      setStaffMessage(message);
-      addNotification(message, 'info');
+      const msg = err.response?.data?.error || 'Unable to generate document.';
+      setStaffMessage(msg);
+      addNotification(msg, 'info');
     }
   };
 
@@ -292,6 +326,23 @@ function Dashboard({ onNavigate }) {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleLogout = () => { logout(); onNavigate('login'); };
+
+  const handleStaffQuickAction = (action) => {
+    if (action === 'residentRequests') setActiveStaffTab('requests');
+    else if (action === 'issueReports') setActiveStaffTab('issues');
+    else if (action === 'manageAnnouncements') onNavigate('announcements');
+    else onNavigate('profile');
+  };
+
+  const handleClearNotifications = () => setNotifications([]);
+  const handleRemoveNotification = (id) => setNotifications((c) => c.filter((n) => n.id !== id));
+
+  const getIssueStatusClass = (status) => {
+    if (!status) return 'status-reported';
+    return `status-${status.toLowerCase().replace(/_/g, '-')}`;
+  };
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'myrequests', label: 'My Request', icon: '📋' },
@@ -300,72 +351,28 @@ function Dashboard({ onNavigate }) {
     { id: 'profile', label: 'Profile', icon: '👤' },
   ];
 
-  const handleLogout = () => {
-    logout();
-    onNavigate('login');
-  };
-
-  const handleStaffQuickAction = (action) => {
-    switch (action) {
-      case 'residentRequests':
-        setActiveStaffTab('requests');
-        break;
-      case 'issueReports':
-        setActiveStaffTab('issues');
-        break;
-      case 'manageAnnouncements':
-        onNavigate('announcements');
-        break;
-      case 'profile':
-      default:
-        onNavigate('profile');
-        break;
-    }
-  };
-
-  // Remove ALL notifications (clear all button)
-  const handleClearNotifications = () => {
-    setNotifications([]);
-  };
-
-  // Remove a single notification
-  const handleRemoveNotification = (id) => {
-    setNotifications((current) => current.filter((n) => n.id !== id));
-  };
-
-  const getIssueStatusClass = (status) => {
-    if (!status) return 'status-reported';
-    const s = status.toLowerCase().replace(/_/g, '-');
-    return `status-${s}`;
-  };
-
   const userInitial = user?.fullName?.[0]?.toUpperCase() || 'U';
+  const unreadCount = notifications.length;
 
   return (
     <div className="dashboard-container">
+      {/* ── Sidebar ── */}
       <div className={`dashboard-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
-          <img src="/Logo.png" alt="BrgyGO Logo" className="logo-icon" />
+          <div className="logo-icon">
+            <img src="/Logo.png" alt="BrgyGO Logo" />
+          </div>
           <h2>BrgyGO</h2>
         </div>
-
         <nav className="sidebar-menu">
           {menuItems.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              className="menu-item"
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate(item.id);
-              }}
-            >
+            <a key={item.id} href={`#${item.id}`} className="menu-item"
+              onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}>
               <span className="menu-icon">{item.icon}</span>
               {sidebarOpen && <span className="menu-label">{item.label}</span>}
             </a>
           ))}
         </nav>
-
         <div className="sidebar-footer">
           <a href="#logout" onClick={handleLogout} className="menu-item logout">
             <span className="menu-icon">🚪</span>
@@ -374,39 +381,88 @@ function Dashboard({ onNavigate }) {
         </div>
       </div>
 
+      {/* ── Main ── */}
       <div className="dashboard-main">
+
+        {/* Header */}
         <div className="dashboard-header">
           <div className="header-left">
-            <button
-              className="sidebar-toggle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              ☰
-            </button>
+            <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
           </div>
-
           <div className="header-center">
             <h1>Welcome Back, {user?.fullName || 'User'}</h1>
           </div>
 
+          {/* Bell + Avatar */}
           <div className="header-right">
-            <button
-              className="user-avatar"
-              onClick={() => onNavigate('profile')}
-              title="Go to Profile"
-            >
+            <div className="notif-wrapper" ref={notifRef}>
+              <button
+                className="notif-bell-btn"
+                onClick={() => setNotifOpen((o) => !o)}
+                aria-label="Notifications"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="notif-dropdown">
+                  <div className="notif-dropdown-header">
+                    <span className="notif-dropdown-title">Notifications</span>
+                    {notifications.length > 0 && (
+                      <button className="notif-clear-btn" onClick={handleClearNotifications}>
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  <div className="notif-dropdown-body">
+                    {notifications.length === 0 ? (
+                      <div className="notif-empty">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                          stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        <p>No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className={`notif-item notif-item-${n.type}`}>
+                          <div className={`notif-item-dot dot-${n.type}`} />
+                          <div className="notif-item-body">
+                            <div className="notif-item-msg">{n.message}</div>
+                            <div className="notif-item-time">{n.time}</div>
+                          </div>
+                          <button className="notif-item-close"
+                            onClick={() => handleRemoveNotification(n.id)} title="Dismiss">✕</button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button className="user-avatar" onClick={() => onNavigate('profile')} title="Go to Profile">
               {userInitial}
             </button>
           </div>
         </div>
 
+        {/* Content */}
         <div className="dashboard-content">
           <div className="content-header">
             <h2>Welcome, {user?.fullName || 'User'}</h2>
             <p>Manage your barangay services efficiently</p>
           </div>
 
-          {/* Quick Actions — shown for ALL roles */}
+          {/* Quick Actions */}
           <div className="quick-actions-section">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
@@ -460,76 +516,66 @@ function Dashboard({ onNavigate }) {
             </div>
           </div>
 
-          {/* Dashboard Grid — RESIDENTS ONLY (hidden for staff/admin) */}
+          {/* Dashboard Grid — RESIDENTS ONLY */}
           {!isStaff && (
             <div className="dashboard-grid">
-              {/* Recent Requests Card */}
               <div className="dashboard-card requests-card">
                 <div className="card-header">
                   <h3>📋 My Recent Requests</h3>
-                  <a href="#view-all" className="view-all" onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
+                  <a href="#view-all" className="view-all"
+                    onClick={(e) => { e.preventDefault(); onNavigate('myrequests'); }}>View All</a>
                 </div>
                 <div className="card-content">
-                  {loading ? (
-                    <div className="loading-state">Loading...</div>
-                  ) : recentRequests.length === 0 ? (
-                    <div className="empty-state">No requests yet</div>
-                  ) : (
-                    recentRequests.map((request) => (
+                  {loading ? <div className="loading-state">Loading...</div>
+                    : recentRequests.length === 0 ? <div className="empty-state">No requests yet</div>
+                    : recentRequests.map((request) => (
                       <div key={request.id} className="request-item">
                         <div className="request-info">
-                          <div className="request-type">{request.documentType?.replace(/_/g, ' ') || request.type || 'Document'}</div>
+                          <div className="request-type">{request.documentType?.replace(/_/g, ' ') || 'Document'}</div>
                           <div className="request-ref">Ref: {request.referenceNumber || request.refNumber}</div>
                         </div>
                         <div className={`status-badge status-${(request.status || '').toLowerCase().replace(/_/g, '-')}`}>
                           {formatStatusLabel(request.status)}
                         </div>
                       </div>
-                    ))
-                  )}
+                    ))}
                 </div>
               </div>
 
-              {/* Announcements Card */}
               <div className="dashboard-card announcements-card">
-                <div className="card-header">
-                  <h3>📢 Latest Announcements</h3>
-                </div>
+                <div className="card-header"><h3>📢 Latest Announcements</h3></div>
                 <div className="card-content announcements-list">
-                  {loading ? (
-                    <div className="loading-state">Loading...</div>
-                  ) : announcements.length === 0 ? (
-                    <div className="empty-state">No announcements</div>
-                  ) : (
-                    announcements.map((announcement) => (
-                      <div key={announcement.id} className="announcement-item">
-                        <div className="announcement-title">{announcement.title}</div>
-                        <div className="announcement-desc">{announcement.description}</div>
+                  {loading ? <div className="loading-state">Loading...</div>
+                    : announcements.length === 0 ? <div className="empty-state">No announcements</div>
+                    : announcements.map((a) => (
+                      <div key={a.id} className="announcement-item">
+                        <div className="announcement-title">{a.title}</div>
+                        <div className="announcement-desc">{a.description}</div>
                         <div className="announcement-date">
-                          {announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString() : announcement.date}
+                          {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : a.date}
                         </div>
                       </div>
-                    ))
-                  )}
+                    ))}
                 </div>
               </div>
 
-              {/* Statistics Card */}
               <div className="dashboard-card stats-card">
-                <div className="card-header">
-                  <h3>📊 Your Activity</h3>
-                </div>
+                <div className="card-header"><h3>📊 Your Activity</h3></div>
                 <div className="card-content stats-content">
                   <div className="stat-item">
                     <div className="stat-number">{recentRequests.length}</div>
                     <div className="stat-label">Total Requests</div>
                   </div>
                   <div className="stat-item">
-                    <div className="stat-number">{recentRequests.filter(r => ['APPROVED','COMPLETED','READY_FOR_RELEASE'].includes(r.status)).length}</div>
+                    <div className="stat-number">
+                      {recentRequests.filter(r => ['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(r.status)).length}
+                    </div>
                     <div className="stat-label">Approved</div>
                   </div>
                   <div className="stat-item">
-                    <div className="stat-number">{recentRequests.filter(r => (r.status || '').includes('REVIEW')).length}</div>
+                    <div className="stat-number">
+                      {recentRequests.filter(r => (r.status || '').includes('REVIEW')).length}
+                    </div>
                     <div className="stat-label">Under Review</div>
                   </div>
                 </div>
@@ -542,25 +588,20 @@ function Dashboard({ onNavigate }) {
             <div className="my-issues-section">
               <div className="card-header" style={{ marginBottom: '16px' }}>
                 <h3>⚠️ My Issue Reports</h3>
-                <button
-                  className="view-all"
+                <button className="view-all"
                   style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                  onClick={() => onNavigate('report')}
-                >
+                  onClick={() => onNavigate('report')}>
                   Report New Issue
                 </button>
               </div>
-
               {loading ? (
                 <div className="status-message">Loading your issue reports...</div>
               ) : myIssues.length === 0 ? (
                 <div className="dashboard-card" style={{ padding: '24px', textAlign: 'center', color: '#888' }}>
                   <p>You haven't reported any issues yet.</p>
-                  <button
-                    className="action-btn report-btn"
+                  <button className="action-btn report-btn"
                     style={{ display: 'inline-flex', marginTop: '12px', padding: '10px 20px' }}
-                    onClick={() => onNavigate('report')}
-                  >
+                    onClick={() => onNavigate('report')}>
                     <span className="action-icon" style={{ fontSize: '18px' }}>⚠️</span>
                     <span>Report an Issue</span>
                   </button>
@@ -571,24 +612,15 @@ function Dashboard({ onNavigate }) {
                     <div key={issue.id} className="dashboard-card issue-report-card">
                       <div className="issue-card-top">
                         <div>
-                          <div className="issue-category-badge">
-                            {issue.category?.replace(/_/g, ' ') || 'Issue'}
-                          </div>
-                          <div className="issue-tracking">
-                            Tracking: {issue.trackingNumber || `#${issue.id}`}
-                          </div>
+                          <div className="issue-category-badge">{issue.category?.replace(/_/g, ' ') || 'Issue'}</div>
+                          <div className="issue-tracking">Tracking: {issue.trackingNumber || `#${issue.id}`}</div>
                         </div>
                         <div className={`issue-status-badge ${getIssueStatusClass(issue.status)}`}>
                           {formatStatusLabel(issue.status)}
                         </div>
                       </div>
-
                       <div className="issue-description">{issue.description}</div>
-
-                      {issue.address && (
-                        <div className="issue-address">📍 {issue.address}</div>
-                      )}
-
+                      {issue.address && <div className="issue-address">📍 {issue.address}</div>}
                       <div className="issue-footer">
                         <span className={`issue-urgency urgency-${(issue.urgency || 'medium').toLowerCase()}`}>
                           {issue.urgency || 'MEDIUM'} urgency
@@ -597,7 +629,6 @@ function Dashboard({ onNavigate }) {
                           {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : ''}
                         </span>
                       </div>
-
                       {issue.resolutionNotes && (
                         <div className="issue-resolution-notes">
                           <strong>Staff notes:</strong> {issue.resolutionNotes}
@@ -616,18 +647,10 @@ function Dashboard({ onNavigate }) {
               <div className="section-header staff-header">
                 <h3>👷 Staff Control Center</h3>
                 <div className="staff-tabs">
-                  <button
-                    className={`staff-tab ${activeStaffTab === 'requests' ? 'active' : ''}`}
-                    onClick={() => setActiveStaffTab('requests')}
-                  >
-                    Resident Requests
-                  </button>
-                  <button
-                    className={`staff-tab ${activeStaffTab === 'issues' ? 'active' : ''}`}
-                    onClick={() => setActiveStaffTab('issues')}
-                  >
-                    Issue Reports
-                  </button>
+                  <button className={`staff-tab ${activeStaffTab === 'requests' ? 'active' : ''}`}
+                    onClick={() => setActiveStaffTab('requests')}>Resident Requests</button>
+                  <button className={`staff-tab ${activeStaffTab === 'issues' ? 'active' : ''}`}
+                    onClick={() => setActiveStaffTab('issues')}>Issue Reports</button>
                 </div>
               </div>
 
@@ -636,92 +659,68 @@ function Dashboard({ onNavigate }) {
                   <div className="staff-list">
                     {staffRequests.length === 0 ? (
                       <div className="empty-state">No pending document requests.</div>
-                    ) : (
-                      staffRequests.map((request) => (
-                        <div key={request.id} className="staff-item staff-request-item">
-                          <div className="staff-item-row">
-                            <div>
-                              <div className="staff-item-title">{request.documentType?.replace(/_/g, ' ') || 'Document Request'}</div>
-                              <div className="staff-item-meta">
-                                Requested by: <strong>{request.requestorFullName || 'N/A'}</strong>
-                              </div>
-                              <div className="staff-item-meta">Status: {formatStatusLabel(request.status)}</div>
-                              <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
-                            </div>
-                            <div className="staff-actions">
-                              <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>
-                                In Progress
-                              </button>
-                              <button onClick={() => handleRequestStatusChange(request.id, 'APPROVED')}>
-                                Approve
-                              </button>
-                              <button onClick={() => handleRequestStatusChange(request.id, 'COMPLETED')}>
-                                Complete
-                              </button>
-                              <button onClick={() => handleGenerateDocument(request.id)}>
-                                Send Copy
-                              </button>
-                            </div>
+                    ) : staffRequests.map((request) => (
+                      <div key={request.id} className="staff-item staff-request-item">
+                        <div className="staff-item-row">
+                          <div>
+                            <div className="staff-item-title">{request.documentType?.replace(/_/g, ' ') || 'Document Request'}</div>
+                            <div className="staff-item-meta">Requested by: <strong>{request.requestorFullName || 'N/A'}</strong></div>
+                            <div className="staff-item-meta">Status: {formatStatusLabel(request.status)}</div>
+                            <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
                           </div>
-                          <div className="staff-item-detail">
-                            <div>Email: {request.requestorEmail || 'N/A'}</div>
-                            <div>Address: {request.requestorAddress || 'N/A'}</div>
-                            <div>Purpose: {request.purpose || 'N/A'}</div>
-                            {request.identityPhotoUrl && (
-                              <div className="staff-item-image">
-                                <strong>Identity photo submitted:</strong>
-                                <img src={resolveMediaUrl(request.identityPhotoUrl)} alt="Identity" />
-                              </div>
-                            )}
+                          <div className="staff-actions">
+                            <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>In Progress</button>
+                            <button onClick={() => handleRequestStatusChange(request.id, 'APPROVED')}>Approve</button>
+                            <button onClick={() => handleRequestStatusChange(request.id, 'COMPLETED')}>Complete</button>
+                            <button onClick={() => handleGenerateDocument(request.id)}>Send Copy</button>
                           </div>
                         </div>
-                      ))
-                    )}
+                        <div className="staff-item-detail">
+                          <div>Email: {request.requestorEmail || 'N/A'}</div>
+                          <div>Address: {request.requestorAddress || 'N/A'}</div>
+                          <div>Purpose: {request.purpose || 'N/A'}</div>
+                          {request.identityPhotoUrl && (
+                            <div className="staff-item-image">
+                              <strong>Identity photo submitted:</strong>
+                              <img src={resolveMediaUrl(request.identityPhotoUrl)} alt="Identity" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="staff-list">
                     {staffIssues.length === 0 ? (
                       <div className="empty-state">No issue reports at the moment.</div>
-                    ) : (
-                      staffIssues.map((issue) => (
-                        <div key={issue.id} className="staff-item staff-issue-item">
-                          <div className="staff-item-row">
-                            <div>
-                              <div className="staff-item-title">
-                                {issue.category?.replace(/_/g, ' ') || 'Issue Report'}
-                              </div>
-                              <div className="staff-item-meta">
-                                Raised by: <strong>{issue.reportedByName || issue.reporterFullName || 'N/A'}</strong>
-                              </div>
-                              <div className="staff-item-meta">
-                                Email: {issue.reportedByEmail || issue.reporterEmail || 'N/A'}
-                              </div>
-                              <div className="staff-item-meta">Status: {formatStatusLabel(issue.status)}</div>
-                              <div className="staff-item-meta">Tracking: {issue.trackingNumber || `#${issue.id}`}</div>
-                            </div>
-                            <div className="staff-actions">
-                              <button onClick={() => handleIssueStatusChange(issue.id, 'IN_PROGRESS')}>
-                                In Progress
-                              </button>
-                              <button onClick={() => handleIssueStatusChange(issue.id, 'RESOLVED')}>
-                                Done
-                              </button>
-                            </div>
+                    ) : staffIssues.map((issue) => (
+                      <div key={issue.id} className="staff-item staff-issue-item">
+                        <div className="staff-item-row">
+                          <div>
+                            <div className="staff-item-title">{issue.category?.replace(/_/g, ' ') || 'Issue Report'}</div>
+                            <div className="staff-item-meta">Raised by: <strong>{issue.reportedByName || 'N/A'}</strong></div>
+                            <div className="staff-item-meta">Email: {issue.reportedByEmail || 'N/A'}</div>
+                            <div className="staff-item-meta">Status: {formatStatusLabel(issue.status)}</div>
+                            <div className="staff-item-meta">Tracking: {issue.trackingNumber || `#${issue.id}`}</div>
                           </div>
-                          <div className="staff-item-detail">
-                            <div>Description: {issue.description || 'No details provided'}</div>
-                            <div>Address: {issue.address || 'N/A'}</div>
-                            <div>Urgency: {issue.urgency || 'N/A'}</div>
-                            {issue.proofImageUrl && (
-                              <div className="staff-item-image">
-                                <strong>Proof image:</strong>
-                                <img src={resolveMediaUrl(issue.proofImageUrl)} alt="Issue proof" />
-                              </div>
-                            )}
+                          <div className="staff-actions">
+                            <button onClick={() => handleIssueStatusChange(issue.id, 'IN_PROGRESS')}>In Progress</button>
+                            <button onClick={() => handleIssueStatusChange(issue.id, 'RESOLVED')}>Done</button>
                           </div>
                         </div>
-                      ))
-                    )}
+                        <div className="staff-item-detail">
+                          <div>Description: {issue.description || 'No details provided'}</div>
+                          <div>Address: {issue.address || 'N/A'}</div>
+                          <div>Urgency: {issue.urgency || 'N/A'}</div>
+                          {issue.proofImageUrl && (
+                            <div className="staff-item-image">
+                              <strong>Proof image:</strong>
+                              <img src={resolveMediaUrl(issue.proofImageUrl)} alt="Issue proof" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -730,9 +729,7 @@ function Dashboard({ onNavigate }) {
                 <div className="certificate-preview">
                   <div className="certificate-preview-header">
                     <h4>Document Preview</h4>
-                    <button className="download-button" onClick={handleDownloadCertificate}>
-                      Download Copy
-                    </button>
+                    <button className="download-button" onClick={handleDownloadCertificate}>Download Copy</button>
                   </div>
                   <pre>{certificatePreview}</pre>
                 </div>
@@ -742,46 +739,6 @@ function Dashboard({ onNavigate }) {
             </div>
           )}
 
-          {/* Notifications — shown for ALL roles, persisted in localStorage */}
-          <div className="notifications-section">
-            <div className="section-header">
-              <h3>🔔 Notifications</h3>
-              {notifications.length > 0 && (
-                <button
-                  className="clear-all"
-                  onClick={handleClearNotifications}
-                  style={{ cursor: 'pointer' }}
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-            <div className="notifications-list">
-              {notifications.length === 0 ? (
-                <div className="empty-notifications">No notifications</div>
-              ) : (
-                notifications.map((notification) => (
-                  <div key={notification.id} className={`notification-item notification-${notification.type}`}>
-                    <div className="notification-icon">
-                      {notification.type === 'success' ? '✓' : 'ℹ'}
-                    </div>
-                    <div className="notification-content">
-                      <div className="notification-message">{notification.message}</div>
-                      <div className="notification-time">{notification.time}</div>
-                    </div>
-                    {/* Individual remove button — click ✕ to dismiss one notification */}
-                    <button
-                      className="notification-close"
-                      onClick={() => handleRemoveNotification(notification.id)}
-                      title="Dismiss"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
