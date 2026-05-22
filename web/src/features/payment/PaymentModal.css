@@ -1,0 +1,181 @@
+.pm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.pm-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 0 0 24px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.pm-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: rgba(255,255,255,0.2);
+  border: none; border-radius: 50%;
+  width: 28px; height: 28px;
+  font-size: 14px; cursor: pointer;
+  color: #fff; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.pm-header {
+  background: #1a73e8;
+  padding: 18px 20px 14px;
+  display: flex; align-items: center; gap: 12px;
+  color: #fff;
+}
+
+.pm-credit-icon {
+  width: 38px; height: 38px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.pm-header h2 {
+  font-size: 16px; font-weight: 600;
+  margin: 0 0 2px; color: #fff;
+}
+
+.pm-header p { margin: 0; font-size: 12px; opacity: 0.85; }
+
+.pm-doc-banner {
+  background: #1565c0;
+  padding: 10px 20px;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.pm-doc-label {
+  font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.pm-fee-block { text-align: right; }
+
+.pm-fee-sublabel {
+  display: block; font-size: 9px;
+  opacity: 0.75; letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-fee-amount { font-size: 20px; font-weight: 700; }
+
+.pm-choose-hint {
+  font-size: 13px; color: #555;
+  padding: 14px 20px 8px; margin: 0; line-height: 1.55;
+}
+
+.pm-methods {
+  display: flex; flex-direction: column;
+  gap: 8px; padding: 4px 16px 8px;
+}
+
+.pm-method-btn {
+  display: flex; align-items: center; gap: 12px;
+  background: #f7f8fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px; padding: 12px 14px;
+  cursor: pointer; width: 100%; text-align: left;
+  transition: border-color 0.15s;
+}
+
+.pm-method-btn:hover { border-color: #1a73e8; background: #f0f5ff; }
+
+.pm-method-avatar {
+  width: 34px; height: 34px; border-radius: 8px;
+  color: #fff; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.pm-method-btn div { flex: 1; }
+.pm-method-btn strong { display: block; font-size: 14px; font-weight: 600; color: #111; }
+.pm-method-btn small { font-size: 11px; color: #777; }
+
+.pm-chevron { font-size: 20px; color: #bbb; }
+
+.pm-form {
+  display: flex; flex-direction: column;
+  gap: 10px; padding: 14px 20px 0;
+}
+
+.pm-instruction {
+  font-size: 13px; color: #444;
+  margin: 0; line-height: 1.6;
+}
+
+.pm-form label { font-size: 13px; font-weight: 500; color: #333; }
+
+.pm-form input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #ddd; border-radius: 10px;
+  font-size: 14px; background: #f9f9f9;
+  box-sizing: border-box;
+}
+
+.pm-form input:focus { outline: none; border-color: #1a73e8; background: #fff; }
+
+.pm-cash-info {
+  background: #f0f7f3; border-radius: 10px;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 13px; color: #2d4a33;
+}
+
+.pm-error {
+  background: #fde8e8; color: #9a1f1f;
+  border-radius: 8px; padding: 9px 12px;
+  font-size: 13px;
+}
+
+.pm-actions { display: flex; gap: 8px; }
+
+.pm-back {
+  background: #f4f4f4; color: #333;
+  border: none; border-radius: 10px;
+  padding: 10px 14px; cursor: pointer; font-size: 13px;
+  white-space: nowrap;
+}
+
+.pm-submit {
+  flex: 1; background: #1a73e8; color: #fff;
+  border: none; border-radius: 10px;
+  padding: 10px 14px; cursor: pointer;
+  font-size: 14px; font-weight: 500;
+}
+
+.pm-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.pm-free-notice {
+  padding: 14px 20px;
+  font-size: 13px; color: #2d7a3a;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.pm-free-btn { background: #2f9b44; }
+
+.pm-success {
+  text-align: center; padding: 24px 20px 8px;
+}
+
+.pm-success-icon { font-size: 44px; margin-bottom: 10px; }
+
+.pm-success p {
+  font-size: 14px; color: #444;
+  line-height: 1.6; margin: 0;
+}
