@@ -22,10 +22,8 @@ function Dashboard({ onNavigate }) {
 
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
 
-  // Per-user notification storage key
   const NOTIF_KEY = `brgygoNotifications_${user?.id || 'guest'}`;
 
-  // Load notifications for this specific user when user changes
   useEffect(() => {
     try {
       const stored = localStorage.getItem(NOTIF_KEY);
@@ -36,14 +34,12 @@ function Dashboard({ onNavigate }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Persist notifications to localStorage on every change
   useEffect(() => {
     try {
       localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
     } catch {}
   }, [notifications, NOTIF_KEY]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -87,7 +83,6 @@ function Dashboard({ onNavigate }) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   };
 
-  // ── RESIDENT: notify when announcement is new/updated ──
   const notifyAnnouncementChanges = useCallback((fetchedAnnouncements) => {
     const META_KEY = `brgygoAnnouncementMeta_${user?.id}`;
     const storedMeta = getLocalStorageJson(META_KEY, {});
@@ -109,7 +104,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(META_KEY, updatedMeta);
   }, [addNotification, user?.id]);
 
-  // ── RESIDENT: notify when their document request status changes ──
   const notifyRequestStatusChanges = useCallback((fetchedRequests) => {
     const META_KEY = `brgygoRequestStatusMeta_${user?.id}`;
     const storedMeta = getLocalStorageJson(META_KEY, {});
@@ -138,7 +132,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(META_KEY, updatedMeta);
   }, [addNotification, formatStatusLabel, user?.id]);
 
-  // ── RESIDENT: notify when their issue status changes ──
   const notifyIssueStatusChanges = useCallback((fetchedIssues) => {
     const META_KEY = `brgygoIssueStatusMeta_${user?.id}`;
     const storedMeta = getLocalStorageJson(META_KEY, {});
@@ -152,7 +145,6 @@ function Dashboard({ onNavigate }) {
       const ref = issue.trackingNumber || `#${issue.id}`;
       if (currentStatus) {
         if (!hasSeenBefore) {
-          // First time seeing — only notify if already actioned
           if (!['REPORTED'].includes(currentStatus)) {
             addNotification(`⚠️ Your issue ${ref} status: ${label}`, 'info');
           }
@@ -165,7 +157,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(META_KEY, updatedMeta);
   }, [addNotification, formatStatusLabel, user?.id]);
 
-  // ── STAFF: notify when new document requests or issue reports come in ──
   const notifyStaffNewActivity = useCallback((fetchedRequests, fetchedIssues) => {
     const REQ_META_KEY = 'brgygoStaffRequestMeta';
     const ISSUE_META_KEY = 'brgygoStaffIssueMeta';
@@ -201,7 +192,6 @@ function Dashboard({ onNavigate }) {
     setLocalStorageJson(ISSUE_META_KEY, updatedIssueMeta);
   }, [addNotification]);
 
-  // ── Fetch residents own issues ──
   const fetchMyIssues = useCallback(async () => {
     if (isStaff) return;
     try {
@@ -213,7 +203,6 @@ function Dashboard({ onNavigate }) {
     } catch { setMyIssues([]); }
   }, [isStaff, user, notifyIssueStatusChanges]);
 
-  // ── Fetch staff data and check for new activity ──
   const fetchStaffDashboardData = useCallback(async (shouldNotify = false) => {
     try {
       const [reqRes, issueRes] = await Promise.all([
@@ -237,7 +226,6 @@ function Dashboard({ onNavigate }) {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Fetch requests
         try {
           const userId = user?.id;
           const res = await api.get(`/api/requests${userId ? `?userId=${userId}` : ''}`);
@@ -247,7 +235,6 @@ function Dashboard({ onNavigate }) {
             if (!isStaff) notifyRequestStatusChanges(fetched);
           }
         } catch {}
-        // Fetch announcements
         try {
           const res = await api.get('/api/announcements');
           if (res.data?.content) {
@@ -298,6 +285,7 @@ function Dashboard({ onNavigate }) {
     }
   };
 
+  // Staff: generate and preview soft copy directly — no payment involved
   const handleGenerateDocument = async (requestId) => {
     try {
       const res = await api.get(`/api/requests/${requestId}/certificate`);
@@ -393,7 +381,6 @@ function Dashboard({ onNavigate }) {
             <h1>Welcome Back, {user?.fullName || 'User'}</h1>
           </div>
 
-          {/* Bell + Avatar */}
           <div className="header-right">
             <div className="notif-wrapper" ref={notifRef}>
               <button
@@ -672,6 +659,11 @@ function Dashboard({ onNavigate }) {
                             <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>In Progress</button>
                             <button onClick={() => handleRequestStatusChange(request.id, 'APPROVED')}>Approve</button>
                             <button onClick={() => handleRequestStatusChange(request.id, 'COMPLETED')}>Complete</button>
+                            {/*
+                              Staff clicks "Send Copy" → generates preview only.
+                              Resident will be prompted to pay when they click
+                              "Pay & Download" in their My Document Requests page.
+                            */}
                             <button onClick={() => handleGenerateDocument(request.id)}>Send Copy</button>
                           </div>
                         </div>
@@ -743,6 +735,7 @@ function Dashboard({ onNavigate }) {
       </div>
 
       <div className="dashboard-footer"></div>
+
     </div>
   );
 }
