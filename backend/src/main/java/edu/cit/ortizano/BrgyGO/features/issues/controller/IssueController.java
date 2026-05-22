@@ -114,19 +114,22 @@ public class IssueController {
      * Get all issues reported by current user
      */
     @GetMapping
-    public ResponseEntity<?> getUserIssues() {
-        try {
-            // In real implementation, get from security context
-            Optional<User> user = userService.getUserById(1L); // Placeholder
-            if (user.isPresent()) {
-                List<Issue> issues = issueService.getUserIssues(user.get().getId());
-                return ResponseEntity.ok(issues.stream().map(this::mapToDTO).collect(Collectors.toList()));
-            }
-            return ResponseEntity.status(401).body(Map.of("error", "User not authenticated"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    public ResponseEntity<?> getUserIssues(
+        @RequestParam(value = "userId", required = false) Long userId) {
+    try {
+        if (userId == null) {
+            userId = 1L; // fallback only if not provided
         }
+        Optional<User> user = userService.getUserById(userId);
+        if (user.isPresent()) {
+            List<Issue> issues = issueService.getUserIssues(user.get().getId());
+            return ResponseEntity.ok(issues.stream().map(this::mapToDTO).collect(Collectors.toList()));
+        }
+        return ResponseEntity.status(401).body(Map.of("error", "User not authenticated"));
+    } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+}
 
     /**
      * Get all active issues (for public map view)
