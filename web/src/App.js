@@ -8,17 +8,19 @@ import RequestList from './features/document-request/RequestList';
 import ReportIssue from './features/issues/ReportIssue';
 import Announcements from './features/announcements/Announcements';
 import Profile from './features/auth/Profile';
+import RequestHistory from './features/history/Requesthistory';
 import { AuthProvider, useAuth } from './hooks';
 
-const availableScreens = ['login', 'register', 'dashboard', 'request', 'myrequests', 'report', 'announcements', 'profile'];
+const availableScreens = [
+  'login', 'register', 'dashboard', 'request', 'myrequests',
+  'report', 'announcements', 'profile', 'requesthistory',
+];
 
 function AppContent() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('login');
 
-  const normalizeHash = (hash) => {
-    return hash?.replace(/^#/, '') || '';
-  };
+  const normalizeHash = (hash) => hash?.replace(/^#/, '') || '';
 
   useEffect(() => {
     const targetScreen = normalizeHash(window.location.hash);
@@ -36,12 +38,11 @@ function AppContent() {
         setCurrentScreen(targetScreen);
       }
     };
-
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const handleNavigate = (screen, userData = null) => {
+  const handleNavigate = (screen) => {
     if (availableScreens.includes(screen)) {
       window.location.hash = `#${screen}`;
       setCurrentScreen(screen);
@@ -60,14 +61,15 @@ function AppContent() {
 
   return (
     <div className="App">
-      {currentScreen === 'login' && <Login onNavigate={handleNavigate} />}
-      {currentScreen === 'register' && <Register onNavigate={handleNavigate} />}
-      {currentScreen === 'dashboard' && <Dashboard user={user} onNavigate={handleNavigate} />}
-      {currentScreen === 'request' && <RequestDocument onNavigate={handleNavigate} />}
-      {currentScreen === 'myrequests' && <RequestList onNavigate={handleNavigate} />}
-      {currentScreen === 'report' && <ReportIssue onNavigate={handleNavigate} />}
-      {currentScreen === 'announcements' && <Announcements onNavigate={handleNavigate} />}
-      {currentScreen === 'profile' && <Profile onNavigate={handleNavigate} />}
+      {currentScreen === 'login'          && <Login onNavigate={handleNavigate} />}
+      {currentScreen === 'register'       && <Register onNavigate={handleNavigate} />}
+      {currentScreen === 'dashboard'      && <Dashboard user={user} onNavigate={handleNavigate} />}
+      {currentScreen === 'request'        && <RequestDocument onNavigate={handleNavigate} />}
+      {currentScreen === 'myrequests'     && <RequestList onNavigate={handleNavigate} />}
+      {currentScreen === 'report'         && <ReportIssue onNavigate={handleNavigate} />}
+      {currentScreen === 'announcements'  && <Announcements onNavigate={handleNavigate} />}
+      {currentScreen === 'profile'        && <Profile onNavigate={handleNavigate} />}
+      {currentScreen === 'requesthistory' && <RequestHistory onNavigate={handleNavigate} />}
     </div>
   );
 }
