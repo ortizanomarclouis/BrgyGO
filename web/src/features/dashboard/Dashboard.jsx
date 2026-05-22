@@ -16,7 +16,6 @@ function Dashboard({ onNavigate }) {
   const [staffIssues, setStaffIssues] = useState([]);
   const [myIssues, setMyIssues] = useState([]);
   const [activeStaffTab, setActiveStaffTab] = useState('requests');
-  const [certificatePreview, setCertificatePreview] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -35,16 +34,12 @@ function Dashboard({ onNavigate }) {
   }, [user?.id]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
-    } catch {}
+    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications)); } catch {}
   }, [notifications, NOTIF_KEY]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setNotifOpen(false);
-      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -58,9 +53,8 @@ function Dashboard({ onNavigate }) {
     ]);
   }, []);
 
-  const formatStatusLabel = useCallback((status) => {
-    return status ? status.replace(/_/g, ' ') : '';
-  }, []);
+  const formatStatusLabel = useCallback((status) =>
+    status ? status.replace(/_/g, ' ') : '', []);
 
   const resolveMediaUrl = (url) => {
     if (!url) return null;
@@ -117,9 +111,7 @@ function Dashboard({ onNavigate }) {
       const ref = request.referenceNumber || `#${request.id}`;
       if (currentStatus) {
         if (!hasSeenBefore) {
-          if (currentStatus !== 'SUBMITTED') {
-            addNotification(`📋 Your request ${ref} status: ${label}`, 'info');
-          }
+          if (currentStatus !== 'SUBMITTED') addNotification(`📋 Your request ${ref} status: ${label}`, 'info');
         } else if (previousStatus && currentStatus !== previousStatus) {
           addNotification(`📋 Your request ${ref} is now: ${label}`, 'info');
           if (['APPROVED', 'COMPLETED', 'READY_FOR_RELEASE'].includes(currentStatus)) {
@@ -145,9 +137,7 @@ function Dashboard({ onNavigate }) {
       const ref = issue.trackingNumber || `#${issue.id}`;
       if (currentStatus) {
         if (!hasSeenBefore) {
-          if (!['REPORTED'].includes(currentStatus)) {
-            addNotification(`⚠️ Your issue ${ref} status: ${label}`, 'info');
-          }
+          if (!['REPORTED'].includes(currentStatus)) addNotification(`⚠️ Your issue ${ref} status: ${label}`, 'info');
         } else if (previousStatus && currentStatus !== previousStatus) {
           addNotification(`⚠️ Your issue ${ref} is now: ${label}`, 'info');
         }
@@ -160,11 +150,9 @@ function Dashboard({ onNavigate }) {
   const notifyStaffNewActivity = useCallback((fetchedRequests, fetchedIssues) => {
     const REQ_META_KEY = 'brgygoStaffRequestMeta';
     const ISSUE_META_KEY = 'brgygoStaffIssueMeta';
-
     const storedReqMeta = getLocalStorageJson(REQ_META_KEY, {});
     const hasSeenRequests = Object.keys(storedReqMeta).length > 0;
     const updatedReqMeta = { ...storedReqMeta };
-
     (fetchedRequests || []).forEach((req) => {
       if (!req?.id) return;
       if (hasSeenRequests && !storedReqMeta[req.id]) {
@@ -175,11 +163,9 @@ function Dashboard({ onNavigate }) {
       updatedReqMeta[req.id] = true;
     });
     setLocalStorageJson(REQ_META_KEY, updatedReqMeta);
-
     const storedIssueMeta = getLocalStorageJson(ISSUE_META_KEY, {});
     const hasSeenIssues = Object.keys(storedIssueMeta).length > 0;
     const updatedIssueMeta = { ...storedIssueMeta };
-
     (fetchedIssues || []).forEach((issue) => {
       if (!issue?.id) return;
       if (hasSeenIssues && !storedIssueMeta[issue.id]) {
@@ -211,9 +197,15 @@ function Dashboard({ onNavigate }) {
       ]);
       const requests = reqRes.data || [];
       const issues = issueRes.data || [];
-      setStaffRequests(Array.isArray(requests) ? requests.filter(r =>
-        ['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED'].includes(r.status)
-      ) : []);
+
+      // Only show active (non-completed, non-cancelled, non-rejected) requests on dashboard
+      const activeRequests = Array.isArray(requests)
+        ? requests.filter(r =>
+            ['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED', 'APPROVED', 'READY_FOR_RELEASE'].includes(r.status)
+          )
+        : [];
+
+      setStaffRequests(activeRequests);
       setStaffIssues(Array.isArray(issues) ? issues : []);
       if (shouldNotify) notifyStaffNewActivity(requests, issues);
     } catch {
@@ -251,13 +243,41 @@ function Dashboard({ onNavigate }) {
     fetchDashboardData();
   }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges, fetchMyIssues, fetchStaffDashboardData]);
 
+  // Approve request and automatically generate the soft copy (resident pays before downloading)
+  const handleApproveRequest = async (requestId) => {
+    try {
+      await api.put(`/api/requests/${requestId}/status`, {
+        status: 'APPROVED',
+        notes: 'Document approved. Soft copy is ready — resident will be prompted to pay before downloading.',
+      });
+      // Pre-generate the certificate so it's ready when resident pays
+      try {
+        await api.get(`/api/requests/${requestId}/certificate`);
+      } catch {
+        // Certificate generation failure is non-blocking
+      }
+      const msg = `Request #${requestId} approved. Resident can now pay and download their soft copy.`;
+      setStaffMessage(msg);
+      addNotification(`✅ ${msg}`, 'success');
+      fetchStaffDashboardData(false);
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Unable to approve request.';
+      setStaffMessage(msg);
+      addNotification(msg, 'info');
+    }
+  };
+
   const handleRequestStatusChange = async (requestId, status) => {
+    // Route approve through the dedicated handler
+    if (status === 'APPROVED') {
+      return handleApproveRequest(requestId);
+    }
     try {
       await api.put(`/api/requests/${requestId}/status`, {
         status,
         notes: `Status changed to ${formatStatusLabel(status)} by staff`,
       });
-      const msg = `Request ${requestId} marked ${formatStatusLabel(status)}`;
+      const msg = `Request #${requestId} marked as ${formatStatusLabel(status)}`;
       setStaffMessage(msg);
       addNotification(`📋 ${msg}`, 'success');
       fetchStaffDashboardData(false);
@@ -274,7 +294,7 @@ function Dashboard({ onNavigate }) {
         status,
         notes: `Status changed to ${formatStatusLabel(status)} by staff`,
       });
-      const msg = `Issue ${issueId} marked ${formatStatusLabel(status)}`;
+      const msg = `Issue #${issueId} marked as ${formatStatusLabel(status)}`;
       setStaffMessage(msg);
       addNotification(`⚠️ ${msg}`, 'success');
       fetchStaffDashboardData(false);
@@ -285,41 +305,13 @@ function Dashboard({ onNavigate }) {
     }
   };
 
-  // Staff: generate and preview soft copy directly — no payment involved
-  const handleGenerateDocument = async (requestId) => {
-    try {
-      const res = await api.get(`/api/requests/${requestId}/certificate`);
-      const previewText = res.data?.content || JSON.stringify(res.data, null, 2);
-      setCertificatePreview(previewText);
-      const msg = `Soft copy ready for request ${requestId}`;
-      setStaffMessage(msg);
-      addNotification(`📄 ${msg}`, 'success');
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Unable to generate document.';
-      setStaffMessage(msg);
-      addNotification(msg, 'info');
-    }
-  };
-
-  const handleDownloadCertificate = () => {
-    if (!certificatePreview) return;
-    const blob = new Blob([certificatePreview], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'document-preview.txt';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  };
-
   const handleLogout = () => { logout(); onNavigate('login'); };
 
   const handleStaffQuickAction = (action) => {
     if (action === 'residentRequests') setActiveStaffTab('requests');
     else if (action === 'issueReports') setActiveStaffTab('issues');
     else if (action === 'manageAnnouncements') onNavigate('announcements');
+    else if (action === 'requestHistory') onNavigate('requesthistory');
     else onNavigate('profile');
   };
 
@@ -331,14 +323,23 @@ function Dashboard({ onNavigate }) {
     return `status-${status.toLowerCase().replace(/_/g, '-')}`;
   };
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'myrequests', label: 'My Request', icon: '📋' },
-    { id: 'report', label: 'Report Issue', icon: '⚠️' },
+  // Different sidebar items for staff vs resident
+  const residentMenuItems = [
+    { id: 'dashboard',     label: 'Dashboard',     icon: '📊' },
+    { id: 'myrequests',    label: 'My Requests',   icon: '📋' },
+    { id: 'report',        label: 'Report Issue',  icon: '⚠️' },
     { id: 'announcements', label: 'Announcements', icon: '📢' },
-    { id: 'profile', label: 'Profile', icon: '👤' },
+    { id: 'profile',       label: 'Profile',       icon: '👤' },
   ];
 
+  const staffMenuItems = [
+    { id: 'dashboard',      label: 'Dashboard',       icon: '📊' },
+    { id: 'requesthistory', label: 'Request History', icon: '📂' },
+    { id: 'announcements',  label: 'Announcements',   icon: '📢' },
+    { id: 'profile',        label: 'Profile',         icon: '👤' },
+  ];
+
+  const menuItems = isStaff ? staffMenuItems : residentMenuItems;
   const userInitial = user?.fullName?.[0]?.toUpperCase() || 'U';
   const unreadCount = notifications.length;
 
@@ -383,11 +384,7 @@ function Dashboard({ onNavigate }) {
 
           <div className="header-right">
             <div className="notif-wrapper" ref={notifRef}>
-              <button
-                className="notif-bell-btn"
-                onClick={() => setNotifOpen((o) => !o)}
-                aria-label="Notifications"
-              >
+              <button className="notif-bell-btn" onClick={() => setNotifOpen((o) => !o)} aria-label="Notifications">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -403,9 +400,7 @@ function Dashboard({ onNavigate }) {
                   <div className="notif-dropdown-header">
                     <span className="notif-dropdown-title">Notifications</span>
                     {notifications.length > 0 && (
-                      <button className="notif-clear-btn" onClick={handleClearNotifications}>
-                        Clear all
-                      </button>
+                      <button className="notif-clear-btn" onClick={handleClearNotifications}>Clear all</button>
                     )}
                   </div>
                   <div className="notif-dropdown-body">
@@ -458,22 +453,22 @@ function Dashboard({ onNavigate }) {
                   <button className="action-btn request-btn" onClick={() => handleStaffQuickAction('residentRequests')}>
                     <span className="action-icon">📑</span>
                     <span className="action-label">Resident Requests</span>
-                    <span className="action-desc">View submitted document requests from residents</span>
+                    <span className="action-desc">Review and process active document requests</span>
                   </button>
                   <button className="action-btn report-btn" onClick={() => handleStaffQuickAction('issueReports')}>
                     <span className="action-icon">🚨</span>
                     <span className="action-label">Issue Reports</span>
-                    <span className="action-desc">View resident issue reports and update status</span>
+                    <span className="action-desc">View and update resident issue reports</span>
                   </button>
                   <button className="action-btn announcement-btn" onClick={() => handleStaffQuickAction('manageAnnouncements')}>
                     <span className="action-icon">📣</span>
                     <span className="action-label">Manage Announcements</span>
                     <span className="action-desc">Create, view, and update announcements</span>
                   </button>
-                  <button className="action-btn profile-btn" onClick={() => handleStaffQuickAction('profile')}>
-                    <span className="action-icon">👤</span>
-                    <span className="action-label">Profile</span>
-                    <span className="action-desc">Manage your account details</span>
+                  <button className="action-btn profile-btn" onClick={() => handleStaffQuickAction('requestHistory')}>
+                    <span className="action-icon">📂</span>
+                    <span className="action-label">Request History</span>
+                    <span className="action-desc">View full history of all resident requests</span>
                   </button>
                 </>
               ) : (
@@ -635,9 +630,25 @@ function Dashboard({ onNavigate }) {
                 <h3>👷 Staff Control Center</h3>
                 <div className="staff-tabs">
                   <button className={`staff-tab ${activeStaffTab === 'requests' ? 'active' : ''}`}
-                    onClick={() => setActiveStaffTab('requests')}>Resident Requests</button>
+                    onClick={() => setActiveStaffTab('requests')}>
+                    Resident Requests
+                    {staffRequests.length > 0 && (
+                      <span style={{
+                        marginLeft: '8px', background: '#e74c3c', color: '#fff',
+                        borderRadius: '999px', fontSize: '11px', padding: '1px 7px', fontWeight: 700,
+                      }}>{staffRequests.length}</span>
+                    )}
+                  </button>
                   <button className={`staff-tab ${activeStaffTab === 'issues' ? 'active' : ''}`}
-                    onClick={() => setActiveStaffTab('issues')}>Issue Reports</button>
+                    onClick={() => setActiveStaffTab('issues')}>
+                    Issue Reports
+                    {staffIssues.length > 0 && (
+                      <span style={{
+                        marginLeft: '8px', background: '#e74c3c', color: '#fff',
+                        borderRadius: '999px', fontSize: '11px', padding: '1px 7px', fontWeight: 700,
+                      }}>{staffIssues.length}</span>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -645,41 +656,82 @@ function Dashboard({ onNavigate }) {
                 {activeStaffTab === 'requests' ? (
                   <div className="staff-list">
                     {staffRequests.length === 0 ? (
-                      <div className="empty-state">No pending document requests.</div>
-                    ) : staffRequests.map((request) => (
-                      <div key={request.id} className="staff-item staff-request-item">
-                        <div className="staff-item-row">
-                          <div>
-                            <div className="staff-item-title">{request.documentType?.replace(/_/g, ' ') || 'Document Request'}</div>
-                            <div className="staff-item-meta">Requested by: <strong>{request.requestorFullName || 'N/A'}</strong></div>
-                            <div className="staff-item-meta">Status: {formatStatusLabel(request.status)}</div>
-                            <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
-                          </div>
-                          <div className="staff-actions">
-                            <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>In Progress</button>
-                            <button onClick={() => handleRequestStatusChange(request.id, 'APPROVED')}>Approve</button>
-                            <button onClick={() => handleRequestStatusChange(request.id, 'COMPLETED')}>Complete</button>
-                            {/*
-                              Staff clicks "Send Copy" → generates preview only.
-                              Resident will be prompted to pay when they click
-                              "Pay & Download" in their My Document Requests page.
-                            */}
-                            <button onClick={() => handleGenerateDocument(request.id)}>Send Copy</button>
-                          </div>
-                        </div>
-                        <div className="staff-item-detail">
-                          <div>Email: {request.requestorEmail || 'N/A'}</div>
-                          <div>Address: {request.requestorAddress || 'N/A'}</div>
-                          <div>Purpose: {request.purpose || 'N/A'}</div>
-                          {request.identityPhotoUrl && (
-                            <div className="staff-item-image">
-                              <strong>Identity photo submitted:</strong>
-                              <img src={resolveMediaUrl(request.identityPhotoUrl)} alt="Identity" />
+                      <div className="empty-state">No active document requests.</div>
+                    ) : staffRequests.map((request) => {
+                      const isApproved = ['APPROVED', 'READY_FOR_RELEASE'].includes(request.status);
+                      return (
+                        <div key={request.id} className="staff-item staff-request-item">
+                          <div className="staff-item-row">
+                            <div>
+                              <div className="staff-item-title">
+                                {request.documentType?.replace(/_/g, ' ') || 'Document Request'}
+                              </div>
+                              <div className="staff-item-meta">
+                                Requested by: <strong>{request.requestorFullName || 'N/A'}</strong>
+                              </div>
+                              <div className="staff-item-meta">
+                                Status:{' '}
+                                <span style={{
+                                  padding: '2px 8px', borderRadius: '999px', fontSize: '12px',
+                                  fontWeight: 700,
+                                  background: isApproved ? '#d1fae5' : '#fef3c7',
+                                  color: isApproved ? '#065f46' : '#92400e',
+                                }}>
+                                  {formatStatusLabel(request.status)}
+                                </span>
+                              </div>
+                              <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
                             </div>
-                          )}
+                            <div className="staff-actions">
+                              {/* Only show In Progress if still submitted/under-review */}
+                              {['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED'].includes(request.status) && (
+                                <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>
+                                  In Progress
+                                </button>
+                              )}
+                              {/* Approve — triggers cert generation automatically */}
+                              {!isApproved && (
+                                <button
+                                  style={{ background: '#2f9b44' }}
+                                  onClick={() => handleRequestStatusChange(request.id, 'APPROVED')}
+                                >
+                                  ✅ Approve
+                                </button>
+                              )}
+                              {/* Complete — only once approved */}
+                              {isApproved && (
+                                <button
+                                  style={{ background: '#1a56db' }}
+                                  onClick={() => handleRequestStatusChange(request.id, 'COMPLETED')}
+                                >
+                                  Mark Complete
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="staff-item-detail">
+                            <div>Email: {request.requestorEmail || 'N/A'}</div>
+                            <div>Address: {request.requestorAddress || 'N/A'}</div>
+                            <div>Purpose: {request.purpose || 'N/A'}</div>
+                            {isApproved && (
+                              <div style={{
+                                marginTop: '10px', padding: '8px 12px',
+                                background: '#e6f4ea', borderRadius: '8px',
+                                color: '#1b5e20', fontSize: '13px',
+                              }}>
+                                ✅ Soft copy is ready. Resident will be prompted to pay before downloading.
+                              </div>
+                            )}
+                            {request.identityPhotoUrl && (
+                              <div className="staff-item-image">
+                                <strong>Identity photo submitted:</strong>
+                                <img src={resolveMediaUrl(request.identityPhotoUrl)} alt="Identity" />
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="staff-list">
@@ -717,17 +769,21 @@ function Dashboard({ onNavigate }) {
                 )}
               </div>
 
-              {certificatePreview && (
-                <div className="certificate-preview">
-                  <div className="certificate-preview-header">
-                    <h4>Document Preview</h4>
-                    <button className="download-button" onClick={handleDownloadCertificate}>Download Copy</button>
-                  </div>
-                  <pre>{certificatePreview}</pre>
-                </div>
-              )}
+              {/* View full history link */}
+              <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                <button
+                  onClick={() => onNavigate('requesthistory')}
+                  style={{
+                    background: 'none', border: '1px solid #d1d5db',
+                    borderRadius: '8px', padding: '8px 16px',
+                    cursor: 'pointer', fontSize: '13px', color: '#374151',
+                  }}
+                >
+                  📂 View Full Request History →
+                </button>
+              </div>
 
-              {staffMessage && <div className="staff-message">{staffMessage}</div>}
+              {staffMessage && <div className="staff-message" style={{ marginTop: '16px' }}>{staffMessage}</div>}
             </div>
           )}
 
@@ -735,7 +791,6 @@ function Dashboard({ onNavigate }) {
       </div>
 
       <div className="dashboard-footer"></div>
-
     </div>
   );
 }
