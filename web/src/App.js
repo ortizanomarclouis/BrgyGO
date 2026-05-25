@@ -42,6 +42,17 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('googleAuth') === 'true') {
+    // Fetch the authenticated user from backend
+    api.get('/api/auth/google/user').then(res => {
+      localStorage.setItem('token', res.data.token || 'google-session');
+      localStorage.setItem('user', JSON.stringify(res.data));
+      setCurrentScreen('dashboard');
+    }).catch(() => setCurrentScreen('login'));
+  }
+}, []);
   const handleNavigate = (screen) => {
     if (availableScreens.includes(screen)) {
       window.location.hash = `#${screen}`;

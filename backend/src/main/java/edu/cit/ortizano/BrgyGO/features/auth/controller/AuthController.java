@@ -26,6 +26,7 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
 
     public AuthController(UserService userService) {
         this.userService = userService;
@@ -36,6 +37,13 @@ public class AuthController {
      * @param request the register request
      * @return response with user info
      */
+
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthController(UserService userService, PasswordEncoder passwordEncoder) {
+    this.userService = userService;
+    this.passwordEncoder = passwordEncoder;
+}
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
@@ -129,4 +137,30 @@ public class AuthController {
         response.put("message", "Profile endpoint - implement authentication to get user data");
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/google/user")
+public ResponseEntity<?> getGoogleUser(
+        org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken auth) {
+    if (auth == null) return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    
+    var attrs = auth.getPrincipal().getAttributes();
+    String email = (String) attrs.get("email");
+    String name  = (String) attrs.get("name");
+
+    // Find or create user
+    Optional<User> existing = userService.findByEmail(email);
+    User user = existing.orElseGet(() -> {
+        User u = new User();
+        u.setEmail(email);
+        u.setFullName(name);
+        u.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+        return userService.registerUser(u);
+    });
+
+    AuthResponse response = new AuthResponse(
+        "google-auth-token", user.getId(), user.getEmail(),
+        user.getFullName(), user.getRole().toString()
+    );
+    return ResponseEntity.ok(response);
+}
 }
