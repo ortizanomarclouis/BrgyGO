@@ -1,4 +1,3 @@
-// REPLACE SecurityConfig.java entirely
 package edu.cit.ortizano.BrgyGO.config;
 
 import org.springframework.context.annotation.Bean;
@@ -29,21 +28,16 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
-                .successHandler(googleAuthSuccessHandler())
+                // After Google authenticates the user, redirect to the frontend
+                // with googleAuth=true as a plain query param (no hash) so
+                // App.js can detect it via URLSearchParams.
+                .defaultSuccessUrl("http://localhost:3000?googleAuth=true", true)
                 .failureUrl("http://localhost:3000/login?error=google_failed")
             )
             .headers(headers -> headers
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
 
         return http.build();
-    }
-
-    @Bean
-    public AuthenticationSuccessHandler googleAuthSuccessHandler() {
-        return (request, response, authentication) -> {
-            // Redirect to frontend — GoogleOAuthController will serve the user data
-            response.sendRedirect("http://localhost:3000/#dashboard?googleAuth=true");
-        };
     }
 
     @Bean
