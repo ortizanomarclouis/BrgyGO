@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Login from './features/auth/Login';
+import api from './hooks/api';
 import Register from './features/auth/Register';
 import Dashboard from './features/dashboard/Dashboard';
 import RequestDocument from './features/document-request/RequestDocument';
@@ -15,6 +16,7 @@ const availableScreens = [
   'login', 'register', 'dashboard', 'request', 'myrequests',
   'report', 'announcements', 'profile', 'requesthistory',
 ];
+
 
 function AppContent() {
   const { user, isAuthenticated, loading } = useAuth();
