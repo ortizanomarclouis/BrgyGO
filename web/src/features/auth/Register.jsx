@@ -43,10 +43,9 @@ function Register({ onNavigate }) {
     const result = await handleRegister(formData);
 
     if (result.success) {
-      setSuccess('Account created successfully. Please log in.');
-      setError('');
-      setTimeout(() => onNavigate('login'), 1500);
-    } else {
+  // Instead of navigating to login, navigate to OTP screen
+    onNavigate('verify-otp', { email: formData.email });
+      } else {
       setError(result.error);
     }
   };

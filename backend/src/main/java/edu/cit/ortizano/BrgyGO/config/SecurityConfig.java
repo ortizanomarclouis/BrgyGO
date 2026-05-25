@@ -1,3 +1,4 @@
+// REPLACE SecurityConfig.java entirely
 package edu.cit.ortizano.BrgyGO.config;
 
 import org.springframework.context.annotation.Bean;
@@ -25,8 +26,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/issues/**").permitAll()
                 .requestMatchers("/api/announcements/**").permitAll()
                 .requestMatchers("/api/payments/**").permitAll()
-                .requestMatchers("/api/oauth/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
@@ -42,7 +41,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationSuccessHandler googleAuthSuccessHandler() {
         return (request, response, authentication) -> {
-            // Redirect to frontend — the controller will handle user creation
+            // Redirect to frontend — GoogleOAuthController will serve the user data
             response.sendRedirect("http://localhost:3000/#dashboard?googleAuth=true");
         };
     }
