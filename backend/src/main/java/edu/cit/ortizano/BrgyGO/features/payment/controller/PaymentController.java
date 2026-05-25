@@ -5,20 +5,11 @@ import edu.cit.ortizano.BrgyGO.features.payment.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * REST endpoints for the payment flow.
- *
- * Public-facing  →  POST /api/payments            (resident submits)
- * Staff          →  POST /api/payments/{id}/verify (staff verifies)
- *                   GET  /api/payments/request/{requestId}
- */
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -29,68 +20,88 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    // ── Resident: submit payment ─────────────────────────────────────────────
-
     /**
-     * Accepts both online (multipart) and cash (JSON) submissions via a
-     * single endpoint.  The frontend sends:
-     *
-     *   Online  →  multipart/form-data
-     *              requestId, paymentMethod (GCASH|PAYMAYA), referenceNumber,
-     *              amount, proofScreenshot (file)
-     *
-     *   Cash    →  application/json
-     *              { requestId, paymentMethod: "CASH", amount }
+     * Single JSON-only endpoint — no multipart, no @RequestParam conflict.
+     * Frontend sends: { requestId, method, referenceNumber, amount }
      */
-    @PostMapping(consumes = { "multipart/form-data", "application/json" })
-    public ResponseEntity<PaymentDto> submitPayment(
-            // multipart params (online)
-            @RequestParam(required = false) Long requestId,
-            @RequestParam(required = false) String paymentMethod,
-            @RequestParam(required = false) String referenceNumber,
-            @RequestParam(required = false) BigDecimal amount,
-            @RequestParam(required = false) MultipartFile proofScreenshot,
-            // JSON body fallback (cash)
-            @RequestBody(required = false) Map<String, Object> body
-    ) throws IOException {
+    @PostMapping(consumes = "application/json")
+    public ResponseEntity<?> submitPayment(@RequestBody Map<String, Object> body) {
+        try {
+            Long       requestId       = toLong(body.get("requestId"));
+            String     method          = toString(body.get("method"));
+            String     referenceNumber = toString(body.get("referenceNumber"));
+            BigDecimal amount          = toBigDecimal(body.get("amount"));
 
-        // Merge JSON body into variables when it's a JSON request
-        if (body != null) {
-            if (requestId    == null) requestId    = toLong(body.get("requestId"));
-            if (paymentMethod == null) paymentMethod = (String) body.get("paymentMethod");
-            if (amount       == null) amount       = toBigDecimal(body.get("amount"));
+            System.out.println("=== PAYMENT SUBMIT ===");
+            System.out.println("requestId      : " + requestId);
+            System.out.println("method         : " + method);
+            System.out.println("referenceNumber: " + referenceNumber);
+            System.out.println("amount         : " + amount);
+
+            if (requestId == null)
+                return ResponseEntity.badRequest().body(Map.of("error", "requestId is required"));
+
+            // Defaults
+            if (amount == null) amount = BigDecimal.ZERO;
+            if (method == null || method.isBlank()) method = "CASH";
+
+            // Map frontend values → enum values the service understands
+            // Frontend sends: "ONLINE", "FREE", "CASH"
+            // Enum accepts:   "GCASH",  "GCASH", "CASH"
+            String serviceMethod;
+            switch (method.toUpperCase()) {
+                case "ONLINE":
+                case "FREE":
+                case "GCASH":
+                    serviceMethod = "GCASH";
+                    break;
+                case "MAYA":
+                case "PAYMAYA":
+                    serviceMethod = "PAYMAYA";
+                    break;
+                default:
+                    serviceMethod = "CASH";
+                    break;
+            }
+
+            // Placeholder ref for samples
+            if ((referenceNumber == null || referenceNumber.isBlank())
+                    && !"CASH".equals(serviceMethod)) {
+                referenceNumber = "SAMPLE-" + System.currentTimeMillis();
+            }
+
+            PaymentDto result;
+            if ("CASH".equals(serviceMethod)) {
+                result = paymentService.submitCashPayment(requestId, amount);
+            } else {
+                result = paymentService.submitOnlinePayment(
+                        requestId, serviceMethod, referenceNumber, amount, null);
+            }
+
+            System.out.println("=== PAYMENT SAVED id=" + result.getId() + " ===");
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            System.out.println("=== PAYMENT ERROR: " + e.getMessage() + " ===");
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
-
-        if ("CASH".equalsIgnoreCase(paymentMethod)) {
-            return ResponseEntity.ok(paymentService.submitCashPayment(requestId, amount));
-        }
-
-        return ResponseEntity.ok(
-                paymentService.submitOnlinePayment(
-                        requestId, paymentMethod, referenceNumber, amount, proofScreenshot));
     }
 
-    // ── Staff: verify or reject ──────────────────────────────────────────────
-
-    /**
-     * Body: { "approve": true }
-     */
+    // ── Staff: verify or reject ───────────────────────────────────────────────
     @PostMapping("/{paymentId}/verify")
     public ResponseEntity<PaymentDto> verifyPayment(
             @PathVariable Long paymentId,
             @RequestBody Map<String, Boolean> body,
-            Authentication auth
-    ) {
+            Authentication auth) {
         boolean approve = Boolean.TRUE.equals(body.get("approve"));
         String  staff   = auth != null ? auth.getName() : "staff";
         return ResponseEntity.ok(paymentService.verifyPayment(paymentId, approve, staff));
     }
 
-    // ── Staff: query ─────────────────────────────────────────────────────────
-
+    // ── Queries ───────────────────────────────────────────────────────────────
     @GetMapping("/request/{requestId}")
-    public ResponseEntity<List<PaymentDto>> getPaymentsForRequest(
-            @PathVariable Long requestId) {
+    public ResponseEntity<List<PaymentDto>> getPaymentsForRequest(@PathVariable Long requestId) {
         return ResponseEntity.ok(paymentService.getPaymentsForRequest(requestId));
     }
 
@@ -99,17 +110,20 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getLatestPaymentForRequest(requestId));
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
+    // ── Helpers ───────────────────────────────────────────────────────────────
     private Long toLong(Object o) {
         if (o == null) return null;
         if (o instanceof Number) return ((Number) o).longValue();
-        try { return Long.parseLong(o.toString()); } catch (NumberFormatException e) { return null; }
+        try { return Long.parseLong(o.toString()); } catch (Exception e) { return null; }
     }
 
     private BigDecimal toBigDecimal(Object o) {
         if (o == null) return null;
         if (o instanceof Number) return BigDecimal.valueOf(((Number) o).doubleValue());
-        try { return new BigDecimal(o.toString()); } catch (NumberFormatException e) { return null; }
+        try { return new BigDecimal(o.toString()); } catch (Exception e) { return null; }
+    }
+
+    private String toString(Object o) {
+        return o == null ? null : o.toString();
     }
 }

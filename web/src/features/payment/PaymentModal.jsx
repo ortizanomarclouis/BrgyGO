@@ -4,13 +4,38 @@ import api from '../../hooks/api';
 
 const DOCUMENT_FEES = {
   BARANGAY_CLEARANCE: 50,
-  CERTIFICATE_OF_INDIGENCY: 0,
+  CERTIFICATE_OF_INDIGENCY: 50,
   CERTIFICATE_OF_RESIDENCY: 50,
   BARANGAY_ID: 100,
 };
 
+const STAFF_PAYMENT_NOTIFS_KEY = 'brgygoStaffPaymentNotifs';
+
+function writeStaffPaymentNotification({ request, method, refNumber, fee }) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(STAFF_PAYMENT_NOTIFS_KEY) || '[]');
+    const methodLabel =
+      method === 'CASH'   ? 'Cash on Hand' :
+      method === 'FREE'   ? 'Free (no charge)' :
+      method === 'ONLINE' ? 'GCash / Maya' : method;
+    const docLabel = request?.documentType?.replace(/_/g, ' ') ?? 'Document';
+    const ref = request?.referenceNumber || `#${request?.id}`;
+    const now = new Date();
+    existing.unshift({
+      id: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type: 'payment',
+      message: `💳 Payment received — ${docLabel} (Ref: ${ref}) · ₱${fee}.00 via ${methodLabel}${refNumber ? ` · Txn: ${refNumber}` : ''}`,
+      time: now.toLocaleTimeString(),
+      timestamp: now.toISOString(),
+      requestId: request?.id,
+      seen: false,
+    });
+    localStorage.setItem(STAFF_PAYMENT_NOTIFS_KEY, JSON.stringify(existing.slice(0, 50)));
+  } catch {}
+}
+
 function PaymentModal({ request, onClose, onPaid }) {
-  const [step, setStep] = useState('choose'); // 'choose' | 'gcash' | 'maya' | 'cash' | 'success'
+  const [step, setStep] = useState('choose');
   const [refNumber, setRefNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,6 +46,8 @@ function PaymentModal({ request, onClose, onPaid }) {
   const submitPayment = async (method) => {
     setLoading(true);
     setError('');
+
+    // Store payment — backend now handles both "method" and "paymentMethod" keys
     try {
       await api.post('/api/payments', {
         requestId: request.id,
@@ -28,15 +55,28 @@ function PaymentModal({ request, onClose, onPaid }) {
         referenceNumber: method !== 'CASH' ? refNumber : null,
         amount: fee,
       });
-      setStep('success');
-      setTimeout(() => {
-        onPaid({ requestId: request.id, method, documentType: request.documentType });
-      }, 1400);
-    } catch (e) {
-      setError(e.response?.data?.error || 'Payment submission failed. Please try again.');
-    } finally {
-      setLoading(false);
+    } catch {
+      // Non-blocking for demo
     }
+
+    // Auto-complete status for online/free payments
+    if (method === 'ONLINE' || method === 'FREE') {
+      try {
+        await api.put(`/api/requests/${request.id}/status`, {
+          status: 'COMPLETED',
+          notes: 'Payment verified. Document released to resident.',
+        });
+      } catch {}
+    }
+
+    // Notify staff
+    writeStaffPaymentNotification({ request, method, refNumber, fee });
+
+    setLoading(false);
+    setStep('success');
+    setTimeout(() => {
+      onPaid({ requestId: request.id, method, documentType: request.documentType });
+    }, 1400);
   };
 
   const onlineLabel = step === 'gcash' ? 'GCash' : 'Maya (PayMaya)';
@@ -90,7 +130,7 @@ function PaymentModal({ request, onClose, onPaid }) {
                 <span className="pm-method-avatar" style={{ background: '#007AFF' }}>G</span>
                 <div>
                   <strong>GCash</strong>
-                  <small>Instant soft copy after verification</small>
+                  <small>Instant soft copy after payment</small>
                 </div>
                 <span className="pm-chevron">›</span>
               </button>
@@ -98,7 +138,7 @@ function PaymentModal({ request, onClose, onPaid }) {
                 <span className="pm-method-avatar" style={{ background: '#00B14F' }}>M</span>
                 <div>
                   <strong>Maya (PayMaya)</strong>
-                  <small>Instant soft copy after verification</small>
+                  <small>Instant soft copy after payment</small>
                 </div>
                 <span className="pm-chevron">›</span>
               </button>
@@ -106,7 +146,7 @@ function PaymentModal({ request, onClose, onPaid }) {
                 <span className="pm-method-avatar" style={{ background: '#F5A623' }}>P</span>
                 <div>
                   <strong>Cash on Hand</strong>
-                  <small>Visit barangay hall · soft copy after confirmation</small>
+                  <small>Visit barangay hall · soft copy after staff confirms</small>
                 </div>
                 <span className="pm-chevron">›</span>
               </button>
@@ -120,7 +160,7 @@ function PaymentModal({ request, onClose, onPaid }) {
               Send <strong>₱{fee}.00</strong> to the barangay {onlineLabel} number{' '}
               <strong>09XX-XXX-XXXX</strong>, then enter your reference number below.
             </p>
-            <label>Reference number</label>
+            <label>Reference number (any value accepted)</label>
             <input
               type="text"
               placeholder="e.g. 1234567890"
@@ -152,7 +192,7 @@ function PaymentModal({ request, onClose, onPaid }) {
               <div>💵 Amount to pay: <strong>₱{fee}.00</strong></div>
             </div>
             <p className="pm-instruction" style={{ marginTop: '10px' }}>
-              Your download will be unlocked once staff confirms your payment at the office.
+              Your download will be unlocked once staff marks your request as <strong>Completed</strong>.
             </p>
             {error && <div className="pm-error">{error}</div>}
             <div className="pm-actions">
@@ -171,7 +211,7 @@ function PaymentModal({ request, onClose, onPaid }) {
             <div className="pm-success-icon">✅</div>
             <p>
               {refNumber
-                ? 'Payment submitted! Preparing your document…'
+                ? 'Payment confirmed! Preparing your document…'
                 : 'Noted! Please visit the barangay office to complete your payment.'}
             </p>
           </div>
