@@ -21,36 +21,32 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password, rememberMe = false) => {
-    try {
-      const response = await api.post('/api/auth/login', {
-        email,
-        password,
-        rememberMe,
-      });
-
-      const { token, ...userData } = response.data;
-
-      // Store token and user data
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      setUser(userData);
-      return { success: true, user: userData };
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Login failed';
-      return { success: false, error: errorMessage };
+  try {
+    const response = await api.post('/api/auth/login', { email, password, rememberMe });
+    const { token, ...userData } = response.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    return { success: true, user: userData };
+  } catch (error) {
+    const data = error.response?.data;
+    if (data?.requiresVerification) {
+      return { success: false, requiresVerification: true, email: data.email,
+               error: 'Please verify your email first.' };
     }
-  };
+    return { success: false, error: data?.error || 'Login failed' };
+  }
+};
 
   const register = async (userData) => {
-    try {
-      await api.post('/api/auth/register', userData);
-      return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Registration failed';
-      return { success: false, error: errorMessage };
-    }
-  };
+  try {
+    const response = await api.post('/api/auth/register', userData);
+    return { success: true, email: response.data.email };
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || 'Registration failed';
+    return { success: false, error: errorMessage };
+  }
+};
 
   const logout = () => {
     localStorage.removeItem('token');

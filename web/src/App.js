@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Login from './features/auth/Login';
 import api from './hooks/api';
+import OtpVerification from './features/auth/OtpVerification';
 import Register from './features/auth/Register';
 import Dashboard from './features/dashboard/Dashboard';
 import RequestDocument from './features/document-request/RequestDocument';
@@ -13,19 +14,22 @@ import RequestHistory from './features/history/Requesthistory';
 import { AuthProvider, useAuth } from './hooks';
 
 const availableScreens = [
-  'login', 'register', 'dashboard', 'request', 'myrequests',
+  'login', 'register','verify-otp' , 'dashboard', 'request', 'myrequests',
   'report', 'announcements', 'profile', 'requesthistory',
 ];
 
 
 function AppContent() {
   const { user, isAuthenticated, loading } = useAuth();
+
   const [currentScreen, setCurrentScreen] = useState('login');
+  const [otpEmail, setOtpEmail] = useState('');
 
   const normalizeHash = (hash) => hash?.replace(/^#/, '') || '';
 
   useEffect(() => {
     const targetScreen = normalizeHash(window.location.hash);
+
     if (availableScreens.includes(targetScreen)) {
       setCurrentScreen(targetScreen);
     } else {
@@ -36,53 +40,92 @@ function AppContent() {
   useEffect(() => {
     const onHashChange = () => {
       const targetScreen = normalizeHash(window.location.hash);
+
       if (availableScreens.includes(targetScreen)) {
         setCurrentScreen(targetScreen);
       }
     };
+
     window.addEventListener('hashchange', onHashChange);
+
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('googleAuth') === 'true') {
-    // Fetch the authenticated user from backend
-    api.get('/api/auth/google/user').then(res => {
-      localStorage.setItem('token', res.data.token || 'google-session');
-      localStorage.setItem('user', JSON.stringify(res.data));
-      setCurrentScreen('dashboard');
-    }).catch(() => setCurrentScreen('login'));
-  }
-}, []);
-  const handleNavigate = (screen) => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('googleAuth') === 'true') {
+      api.get('/api/auth/google/user')
+        .then(res => {
+          localStorage.setItem('token', res.data.token || 'google-session');
+          localStorage.setItem('user', JSON.stringify(res.data));
+          setCurrentScreen('dashboard');
+        })
+        .catch(() => setCurrentScreen('login'));
+    }
+  }, []);
+
+  const handleNavigate = (screen, params = {}) => {
     if (availableScreens.includes(screen)) {
+
+      if (screen === 'verify-otp' && params.email) {
+        setOtpEmail(params.email);
+      }
+
       window.location.hash = `#${screen}`;
       setCurrentScreen(screen);
     }
   };
 
   if (loading) {
-    return (
-      <div className="App">
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          <div>Loading...</div>
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return (
     <div className="App">
-      {currentScreen === 'login'          && <Login onNavigate={handleNavigate} />}
-      {currentScreen === 'register'       && <Register onNavigate={handleNavigate} />}
-      {currentScreen === 'dashboard'      && <Dashboard user={user} onNavigate={handleNavigate} />}
-      {currentScreen === 'request'        && <RequestDocument onNavigate={handleNavigate} />}
-      {currentScreen === 'myrequests'     && <RequestList onNavigate={handleNavigate} />}
-      {currentScreen === 'report'         && <ReportIssue onNavigate={handleNavigate} />}
-      {currentScreen === 'announcements'  && <Announcements onNavigate={handleNavigate} />}
-      {currentScreen === 'profile'        && <Profile onNavigate={handleNavigate} />}
-      {currentScreen === 'requesthistory' && <RequestHistory onNavigate={handleNavigate} />}
+      {currentScreen === 'login' && (
+        <Login onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'register' && (
+        <Register onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'verify-otp' && (
+        <OtpVerification
+          email={otpEmail}
+          onVerified={() => handleNavigate('dashboard')}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {currentScreen === 'dashboard' && (
+        <Dashboard user={user} onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'request' && (
+        <RequestDocument onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'myrequests' && (
+        <RequestList onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'report' && (
+        <ReportIssue onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'announcements' && (
+        <Announcements onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'profile' && (
+        <Profile onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'requesthistory' && (
+        <RequestHistory onNavigate={handleNavigate} />
+      )}
     </div>
   );
 }

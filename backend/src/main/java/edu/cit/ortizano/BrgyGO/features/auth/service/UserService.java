@@ -110,13 +110,22 @@ public class UserService {
      * @return Optional containing the user if authentication successful
      */
     public Optional<User> authenticate(String email, String rawPassword) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (passwordEncoder.matches(rawPassword, user.getPassword()) && user.getIsActive()) {
-                return Optional.of(user);
-            }
+    Optional<User> userOpt = userRepository.findByEmail(email);
+    if (userOpt.isPresent()) {
+        User user = userOpt.get();
+
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        if (!user.getIsActive()) {
+            return Optional.empty();
+        }
+        // Block login if email not verified (unless it's a Google account — googleId set)
+            if (Boolean.FALSE.equals(user.getEmailVerified()) && user.getGoogleId() == null) {
+                throw new RuntimeException("EMAIL_NOT_VERIFIED:" + email);
+            }
+            return Optional.of(user);
+        }
+            return Optional.empty();
     }
 }
