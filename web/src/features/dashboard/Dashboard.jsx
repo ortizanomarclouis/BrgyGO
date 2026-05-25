@@ -3,6 +3,9 @@ import './Dashboard.css';
 import { useAuth } from '../../hooks';
 import api from '../../hooks/api';
 
+// Shared key written by PaymentModal when a resident completes payment
+const STAFF_PAYMENT_NOTIFS_KEY = 'brgygoStaffPaymentNotifs';
+
 function Dashboard({ onNavigate }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -23,16 +26,73 @@ function Dashboard({ onNavigate }) {
 
   const NOTIF_KEY = `brgygoNotifications_${user?.id || 'guest'}`;
 
+  // ── Load persisted notifications on mount ──────────────────────────────────
   useEffect(() => {
     try {
       const stored = localStorage.getItem(NOTIF_KEY);
-      setNotifications(stored ? JSON.parse(stored) : []);
+      let notifs = stored ? JSON.parse(stored) : [];
+
+      // For staff: pull in any unread payment notifications from residents
+      if (isStaff) {
+        const paymentNotifs = JSON.parse(localStorage.getItem(STAFF_PAYMENT_NOTIFS_KEY) || '[]');
+        const unread = paymentNotifs.filter(n => !n.seen);
+        if (unread.length > 0) {
+          // Mark them as seen so they don't re-appear on next load
+          const updated = paymentNotifs.map(n => ({ ...n, seen: true }));
+          localStorage.setItem(STAFF_PAYMENT_NOTIFS_KEY, JSON.stringify(updated));
+          // Prepend to notification list (newest first), dedup by id
+          const existingIds = new Set(notifs.map(n => n.id));
+          const fresh = unread.filter(n => !existingIds.has(n.id));
+          notifs = [...fresh, ...notifs];
+        }
+      }
+
+      setNotifications(notifs);
     } catch {
       setNotifications([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, isStaff]);
 
+  // ── Poll localStorage every 10 s for new notifications ──────────────────────
+  // For staff:    picks up payment notifications written by residents (PaymentModal)
+  // For residents: picks up status-change notifications written by RequestList
+  useEffect(() => {
+    const poll = () => {
+      try {
+        const notifKey = `brgygoNotifications_${user?.id || 'guest'}`;
+
+        // Staff: also merge in any unread payment notifications
+        if (isStaff) {
+          const paymentNotifs = JSON.parse(localStorage.getItem(STAFF_PAYMENT_NOTIFS_KEY) || '[]');
+          const unread = paymentNotifs.filter(n => !n.seen);
+          if (unread.length > 0) {
+            const updated = paymentNotifs.map(n => ({ ...n, seen: true }));
+            localStorage.setItem(STAFF_PAYMENT_NOTIFS_KEY, JSON.stringify(updated));
+            setNotifications(current => {
+              const existingIds = new Set(current.map(n => n.id));
+              const fresh = unread.filter(n => !existingIds.has(n.id));
+              return fresh.length > 0 ? [...fresh, ...current] : current;
+            });
+          }
+        }
+
+        // All users: pick up notifications written to their own key by other pages
+        // (e.g. RequestList writes approval notifications while resident is on dashboard)
+        const stored = JSON.parse(localStorage.getItem(notifKey) || '[]');
+        setNotifications(current => {
+          const existingIds = new Set(current.map(n => n.id));
+          const fresh = stored.filter(n => !existingIds.has(n.id));
+          return fresh.length > 0 ? [...fresh, ...current] : current;
+        });
+      } catch {}
+    };
+
+    const interval = setInterval(poll, 10000);
+    return () => clearInterval(interval);
+  }, [user?.id, isStaff]);
+
+  // ── Persist notifications to localStorage whenever they change ─────────────
   useEffect(() => {
     try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications)); } catch {}
   }, [notifications, NOTIF_KEY]);
@@ -198,7 +258,6 @@ function Dashboard({ onNavigate }) {
       const requests = reqRes.data || [];
       const issues = issueRes.data || [];
 
-      // Only show active (non-completed, non-cancelled, non-rejected) requests on dashboard
       const activeRequests = Array.isArray(requests)
         ? requests.filter(r =>
             ['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED', 'APPROVED', 'READY_FOR_RELEASE'].includes(r.status)
@@ -243,19 +302,15 @@ function Dashboard({ onNavigate }) {
     fetchDashboardData();
   }, [user, isStaff, notifyAnnouncementChanges, notifyRequestStatusChanges, fetchMyIssues, fetchStaffDashboardData]);
 
-  // Approve request and automatically generate the soft copy (resident pays before downloading)
   const handleApproveRequest = async (requestId) => {
     try {
       await api.put(`/api/requests/${requestId}/status`, {
         status: 'APPROVED',
         notes: 'Document approved. Soft copy is ready — resident will be prompted to pay before downloading.',
       });
-      // Pre-generate the certificate so it's ready when resident pays
       try {
         await api.get(`/api/requests/${requestId}/certificate`);
-      } catch {
-        // Certificate generation failure is non-blocking
-      }
+      } catch {}
       const msg = `Request #${requestId} approved. Resident can now pay and download their soft copy.`;
       setStaffMessage(msg);
       addNotification(`✅ ${msg}`, 'success');
@@ -268,10 +323,7 @@ function Dashboard({ onNavigate }) {
   };
 
   const handleRequestStatusChange = async (requestId, status) => {
-    // Route approve through the dedicated handler
-    if (status === 'APPROVED') {
-      return handleApproveRequest(requestId);
-    }
+    if (status === 'APPROVED') return handleApproveRequest(requestId);
     try {
       await api.put(`/api/requests/${requestId}/status`, {
         status,
@@ -323,7 +375,6 @@ function Dashboard({ onNavigate }) {
     return `status-${status.toLowerCase().replace(/_/g, '-')}`;
   };
 
-  // Different sidebar items for staff vs resident
   const residentMenuItems = [
     { id: 'dashboard',     label: 'Dashboard',     icon: '📊' },
     { id: 'myrequests',    label: 'My Requests',   icon: '📋' },
@@ -683,13 +734,11 @@ function Dashboard({ onNavigate }) {
                               <div className="staff-item-meta">Ref: {request.referenceNumber || `#${request.id}`}</div>
                             </div>
                             <div className="staff-actions">
-                              {/* Only show In Progress if still submitted/under-review */}
                               {['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_DOCUMENTS_REQUIRED'].includes(request.status) && (
                                 <button onClick={() => handleRequestStatusChange(request.id, 'UNDER_REVIEW')}>
                                   In Progress
                                 </button>
                               )}
-                              {/* Approve — triggers cert generation automatically */}
                               {!isApproved && (
                                 <button
                                   style={{ background: '#2f9b44' }}
@@ -698,7 +747,6 @@ function Dashboard({ onNavigate }) {
                                   ✅ Approve
                                 </button>
                               )}
-                              {/* Complete — only once approved */}
                               {isApproved && (
                                 <button
                                   style={{ background: '#1a56db' }}
@@ -769,7 +817,6 @@ function Dashboard({ onNavigate }) {
                 )}
               </div>
 
-              {/* View full history link */}
               <div style={{ marginTop: '16px', textAlign: 'right' }}>
                 <button
                   onClick={() => onNavigate('requesthistory')}
