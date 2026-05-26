@@ -17,8 +17,10 @@ function Login({ onNavigate }) {
 
     if (result.success) {
       onNavigate('dashboard');
+    } else if (result.requiresVerification && result.email) {
+      onNavigate('verify-otp', { email: result.email });
     } else {
-      setError(result.error);
+      setError(result.error || 'Login failed');
     }
   };
 
@@ -108,7 +110,6 @@ function Login({ onNavigate }) {
               </button>
             </form>
 
-            {/* Google button lives OUTSIDE the form, below Sign in */}
             <div className="oauth-divider">
               <span>or</span>
             </div>

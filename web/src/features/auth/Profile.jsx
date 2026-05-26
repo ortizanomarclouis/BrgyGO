@@ -23,7 +23,7 @@ function Profile({ onNavigate }) {
     if (result.success) {
       setStatus('Profile updated successfully.');
     } else {
-      setStatus('Unable to update profile.');
+      setStatus(result.error || 'Unable to update profile.');
     }
   };
 

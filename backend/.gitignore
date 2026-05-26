@@ -34,3 +34,18 @@ out/
 .env
 .env.local
 application-local.properties
+
+# Spring local secrets - never commit these
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/application.properties
+
+# Node
+web/node_modules/
+web/build/
+
+# Java build
+backend/target/
+
+# Environment files
+.env
+.env.local

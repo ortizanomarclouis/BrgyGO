@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,12 +68,12 @@ public class AuthController {
 }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
-        try {
-            Optional<User> userOpt = userService.authenticate(request.getEmail(), request.getPassword());
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid email or password"));
-            }
+public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    try {
+        Optional<User> userOpt = userService.authenticate(request.getEmail(), request.getPassword());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid email or password"));
+        }
         User user = userOpt.get();
         AuthResponse response = new AuthResponse(
             "dummy-token",
@@ -80,9 +81,9 @@ public class AuthController {
         );
         return ResponseEntity.ok(response);
 
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.startsWith("EMAIL_NOT_VERIFIED:")) {
+    } catch (RuntimeException e) {
+        String msg = e.getMessage();
+        if (msg != null && msg.startsWith("EMAIL_NOT_VERIFIED:")) {
             String email = msg.replace("EMAIL_NOT_VERIFIED:", "");
             return ResponseEntity.status(403).body(Map.of(
                 "error", "Email not verified",
@@ -91,15 +92,38 @@ public class AuthController {
             ));
         }
         return ResponseEntity.badRequest().body(Map.of("error", "Login failed: " + msg));
-        }
     }
+}
 
-    @GetMapping("/profile")
-    public ResponseEntity<?> getProfile() {
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Profile endpoint - implement authentication to get user data");
-        return ResponseEntity.ok(response);
+    @PutMapping("/profile")
+public ResponseEntity<?> updateProfile(@RequestBody Map<String, Object> body) {
+    try {
+        Long userId = body.get("id") != null ? Long.valueOf(body.get("id").toString()) : null;
+        if (userId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "User ID is required"));
+        }
+        Optional<User> userOpt = userService.getUserById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+        }
+        User existing = userOpt.get();
+        if (body.get("fullName") != null) existing.setFullName(body.get("fullName").toString());
+        if (body.get("contactNumber") != null) existing.setContactNumber(body.get("contactNumber").toString());
+        if (body.get("completeAddress") != null) existing.setCompleteAddress(body.get("completeAddress").toString());
+        // Keep role and isActive unchanged
+        User updated = userService.updateUser(userId, existing);
+        return ResponseEntity.ok(Map.of(
+            "id", updated.getId(),
+            "fullName", updated.getFullName(),
+            "email", updated.getEmail(),
+            "contactNumber", updated.getContactNumber() != null ? updated.getContactNumber() : "",
+            "completeAddress", updated.getCompleteAddress() != null ? updated.getCompleteAddress() : "",
+            "role", updated.getRole().toString()
+        ));
+    } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+}
 
 
     @PostMapping("/verify-otp")
