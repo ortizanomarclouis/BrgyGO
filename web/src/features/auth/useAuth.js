@@ -7,7 +7,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on app start
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
@@ -43,11 +42,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Called by App.js after a successful Google OAuth redirect.
-   * The token + user data have already been written to localStorage by App.js;
-   * this just syncs the AuthContext state so the rest of the app re-renders.
-   */
   const loginWithGoogleData = (userData) => {
     setUser(userData);
   };
@@ -69,10 +63,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateProfile = async (profileData) => {
-    const updatedUser = { ...user, ...profileData };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    return { success: true, user: updatedUser };
+    try {
+      const payload = {
+        id: user?.id,
+        fullName: profileData.fullName,
+        contactNumber: profileData.contactNumber,
+        completeAddress: profileData.completeAddress,
+      };
+      const response = await api.put('/api/auth/profile', payload);
+      const updatedUser = { ...user, ...response.data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      return { success: true, user: updatedUser };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Profile update failed' };
+    }
   };
 
   const value = {
