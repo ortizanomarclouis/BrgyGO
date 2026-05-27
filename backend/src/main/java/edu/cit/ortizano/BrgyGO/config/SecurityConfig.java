@@ -8,34 +8,36 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http
-        .csrf(csrf -> csrf.disable())
-        .cors(cors -> {})
-        .authorizeHttpRequests(authz -> authz
-            .requestMatchers("/api/auth/**").permitAll()
-            .requestMatchers("/api/requests/**").permitAll()
-            .requestMatchers("/api/issues/**").permitAll()
-            .requestMatchers("/api/announcements/**").permitAll()
-            .requestMatchers("/api/payments/**").permitAll()
-            .anyRequest().authenticated()
-        )
-        .oauth2Login(oauth2 -> oauth2
-            .defaultSuccessUrl("https://brgygo-frontend.onrender.com?googleAuth=true", true)
-            .failureUrl("https://brgygo-frontend.onrender.com/login?error=google_failed")
-        )
-        .headers(headers -> headers
-            .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {})
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/requests/**").permitAll()
+                .requestMatchers("/api/issues/**").permitAll()
+                .requestMatchers("/api/announcements/**").permitAll()
+                .requestMatchers("/api/payments/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                // After Google authenticates, redirect to OUR OWN controller endpoint.
+                // That controller builds the user, creates a one-time token, and then
+                // redirects the browser to the frontend — no cross-domain cookie needed.
+                .defaultSuccessUrl("/api/auth/google/callback", true)
+                .failureUrl("/api/auth/google/failure")
+            )
+            .headers(headers -> headers
+                .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
 
-    return http.build();
-}
+        return http.build();
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
