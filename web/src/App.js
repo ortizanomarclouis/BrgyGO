@@ -24,21 +24,43 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState('login');
   const [otpEmail, setOtpEmail] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState('');
 
   const normalizeHash = (hash) => hash?.replace(/^#/, '') || '';
 
-  // ── Detect Google OAuth redirect ──────────────────────────────────────────
-  // After Spring authenticates via Google it redirects to:
-  //   http://localhost:3000?googleAuth=true
-  // (plain query param, no hash).  We detect this on mount, fetch the user
-  // from the backend session, store in localStorage, then navigate to dashboard.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    if (params.get('googleAuth') === 'true') {
+    // ── NEW: one-time token exchange (replaces the broken session-cookie flow) ──
+    const googleToken = params.get('googleToken');
+    if (googleToken) {
       setGoogleLoading(true);
 
-      // Remove the query param from the URL so a refresh doesn't re-trigger
+      // Remove the query param from the URL immediately
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+
+      api.get(`/api/auth/google/exchange?token=${googleToken}`)
+        .then(res => {
+          const { token, ...userData } = res.data;
+          localStorage.setItem('token', token || 'google-session');
+          localStorage.setItem('user', JSON.stringify(userData));
+          if (loginWithGoogleData) loginWithGoogleData(userData);
+          setCurrentScreen('dashboard');
+        })
+        .catch(err => {
+          console.error('Google token exchange failed:', err);
+          setGoogleError('Google sign-in failed. Please try again.');
+          setCurrentScreen('login');
+        })
+        .finally(() => setGoogleLoading(false));
+
+      return;
+    }
+
+    // ── Legacy: googleAuth=true (kept for backward compat, but now returns error) ──
+    if (params.get('googleAuth') === 'true') {
+      setGoogleLoading(true);
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, '', cleanUrl);
 
@@ -47,17 +69,25 @@ function AppContent() {
           const { token, ...userData } = res.data;
           localStorage.setItem('token', token || 'google-session');
           localStorage.setItem('user', JSON.stringify(userData));
-          // Update the AuthContext so the rest of the app knows the user is logged in
           if (loginWithGoogleData) loginWithGoogleData(userData);
           setCurrentScreen('dashboard');
         })
         .catch(err => {
           console.error('Google user fetch failed:', err);
+          setGoogleError('Google sign-in failed. Please try again.');
           setCurrentScreen('login');
         })
         .finally(() => setGoogleLoading(false));
 
-      return; // skip the hash-based navigation below while loading
+      return;
+    }
+
+    // ── Error from backend ──────────────────────────────────────────────────
+    if (params.get('googleAuth') === 'error') {
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+      setGoogleError('Google sign-in failed. Please try again.');
+      setCurrentScreen('login');
+      return;
     }
 
     // ── Normal hash-based navigation ────────────────────────────────────────
@@ -106,7 +136,7 @@ function AppContent() {
   return (
     <div className="App">
       {currentScreen === 'login' && (
-        <Login onNavigate={handleNavigate} />
+        <Login onNavigate={handleNavigate} googleError={googleError} />
       )}
       {currentScreen === 'register' && (
         <Register onNavigate={handleNavigate} />

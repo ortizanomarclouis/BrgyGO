@@ -7,8 +7,6 @@ import PaymentModal from '../payment/PaymentModal';
 const PAY_FIRST_STATUSES = ['APPROVED'];
 const DIRECT_DOWNLOAD_STATUSES = ['COMPLETED', 'READY_FOR_RELEASE'];
 
-// Write a notification into the resident's own notification store so
-// the Dashboard bell picks it up immediately on next render / poll.
 function writeResidentNotification(userId, message, type = 'success') {
   try {
     const key = `brgygoNotifications_${userId}`;
@@ -26,6 +24,92 @@ function writeResidentNotification(userId, message, type = 'success') {
   } catch {}
 }
 
+/**
+ * Generate and download a PDF certificate using jsPDF (no external server needed).
+ * Dynamically imports jsPDF so it doesn't bloat the initial bundle.
+ */
+async function downloadAsPdf(content, documentType, requestId) {
+  // Dynamically import jsPDF — install with: npm install jspdf
+  const { jsPDF } = await import('jspdf');
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageW  = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentW = pageW - margin * 2;
+
+  // ── Header bar ──────────────────────────────────────────────────────────
+  doc.setFillColor(45, 158, 82);          // BrgyGO green
+  doc.rect(0, 0, pageW, 28, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('BrgyGO — Official Document', margin, 12);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const docLabel = (documentType || 'DOCUMENT').replace(/_/g, ' ');
+  doc.text(docLabel, margin, 21);
+
+  // ── Reference & date ────────────────────────────────────────────────────
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  const nowStr = new Date().toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  doc.text(`Request ID: ${requestId}`, margin, 36);
+  doc.text(`Downloaded: ${nowStr}`, pageW - margin, 36, { align: 'right' });
+
+  // Divider
+  doc.setDrawColor(45, 158, 82);
+  doc.setLineWidth(0.5);
+  doc.line(margin, 39, pageW - margin, 39);
+
+  // ── Certificate content ─────────────────────────────────────────────────
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(10);
+  doc.setFont('courier', 'normal');   // monospace preserves the text art borders
+
+  const lines = doc.splitTextToSize(content || 'Certificate content unavailable.', contentW);
+  let y = 48;
+  const lineH = 5.5;
+  const maxY  = doc.internal.pageSize.getHeight() - margin;
+
+  lines.forEach((line) => {
+    if (y + lineH > maxY) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.text(line, margin, y);
+    y += lineH;
+  });
+
+  // ── Footer ───────────────────────────────────────────────────────────────
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setTextColor(160, 160, 160);
+    doc.setFont('helvetica', 'normal');
+    doc.text(
+      `BrgyGO Digital Barangay System  •  Page ${p} of ${totalPages}`,
+      pageW / 2,
+      doc.internal.pageSize.getHeight() - 8,
+      { align: 'center' }
+    );
+  }
+
+  // ── Save ─────────────────────────────────────────────────────────────────
+  const fileName = `${docLabel.replace(/\s+/g, '-')}-${requestId}.pdf`;
+  doc.save(fileName);
+  return fileName;
+}
+
 function RequestList({ onNavigate }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
@@ -40,7 +124,6 @@ function RequestList({ onNavigate }) {
   const formatStatusLabel = (status) =>
     status ? status.replace(/_/g, ' ') : '';
 
-  // Check for status changes vs what was last stored, fire resident notifications
   const checkAndNotifyStatusChanges = useCallback((fetchedRequests) => {
     if (!user?.id) return;
     try {
@@ -58,12 +141,10 @@ function RequestList({ onNavigate }) {
         if (!currentStatus) return;
 
         if (!hasSeenBefore) {
-          // First time seeing requests — only notify if already past SUBMITTED
           if (!['SUBMITTED'].includes(currentStatus)) {
             writeResidentNotification(user.id, `📋 Your request ${ref} status: ${label}`, 'info');
           }
         } else if (previousStatus && currentStatus !== previousStatus) {
-          // Status changed since last check
           writeResidentNotification(user.id, `📋 Your request ${ref} is now: ${label}`, 'info');
 
           if (['APPROVED'].includes(currentStatus)) {
@@ -117,36 +198,27 @@ function RequestList({ onNavigate }) {
     }
   }, [user, checkAndNotifyStatusChanges]);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
-  // Poll every 20 seconds so resident sees status updates while on this page
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchRequests();
-    }, 20000);
+    const interval = setInterval(() => { fetchRequests(); }, 20000);
     return () => clearInterval(interval);
   }, [fetchRequests]);
 
+  // ── PDF Download ──────────────────────────────────────────────────────────
   const downloadCertificate = async (requestId, documentType) => {
     setDownloadingId(requestId);
     setDownloadSuccess('');
     try {
+      // Fetch certificate content from backend
       const response = await api.get(`/api/requests/${requestId}/certificate`);
       const content = response.data?.content || JSON.stringify(response.data, null, 2);
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `${(documentType || 'document').replace(/_/g, '-')}-${requestId}.txt`;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      setDownloadSuccess(`✓ Document downloaded: ${fileName}`);
-      setTimeout(() => setDownloadSuccess(''), 4000);
+
+      // Generate and download PDF
+      const fileName = await downloadAsPdf(content, documentType, requestId);
+
+      setDownloadSuccess(`✓ PDF downloaded: ${fileName}`);
+      setTimeout(() => setDownloadSuccess(''), 5000);
     } catch (err) {
       alert(err.response?.data?.error || 'Unable to download document at this time.');
     } finally {
@@ -249,7 +321,7 @@ function RequestList({ onNavigate }) {
                         disabled={isDownloading}
                         onClick={() => handleDownloadClick(request)}
                       >
-                        {isDownloading ? 'Downloading...' : '⬇ Download Copy'}
+                        {isDownloading ? 'Generating PDF…' : '⬇ Download PDF'}
                       </button>
                     )}
 
@@ -260,7 +332,7 @@ function RequestList({ onNavigate }) {
                         onClick={() => handleDownloadClick(request)}
                         style={{ background: '#1a73e8' }}
                       >
-                        {isDownloading ? 'Downloading...' : '💳 Pay & Download'}
+                        {isDownloading ? 'Generating PDF…' : '💳 Pay & Download PDF'}
                       </button>
                     )}
 
