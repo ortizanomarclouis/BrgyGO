@@ -29,7 +29,6 @@ function writeResidentNotification(userId, message, type = 'success') {
  * Dynamically imports jsPDF so it doesn't bloat the initial bundle.
  */
 async function downloadAsPdf(content, documentType, requestId) {
-  // Dynamically import jsPDF — install with: npm install jspdf
   const { jsPDF } = await import('jspdf');
 
   const doc = new jsPDF({
@@ -39,72 +38,147 @@ async function downloadAsPdf(content, documentType, requestId) {
   });
 
   const pageW  = doc.internal.pageSize.getWidth();
+  const pageH  = doc.internal.pageSize.getHeight();
   const margin = 20;
-  const contentW = pageW - margin * 2;
 
-  // ── Header bar ──────────────────────────────────────────────────────────
-  doc.setFillColor(45, 158, 82);          // BrgyGO green
-  doc.rect(0, 0, pageW, 28, 'F');
+  // ── Outer border (like a real PH barangay document) ─────────────────────
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(1.5);
+  doc.rect(10, 10, pageW - 20, pageH - 20);
+  doc.setLineWidth(0.5);
+  doc.rect(13, 13, pageW - 26, pageH - 26);
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('BrgyGO — Official Document', margin, 12);
+  // ── Header: Republic of the Philippines ─────────────────────────────────
+  let y = 30;
 
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const docLabel = (documentType || 'DOCUMENT').replace(/_/g, ' ');
-  doc.text(docLabel, margin, 21);
+  doc.text('Republic of the Philippines', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.text('Province / City', pageW / 2, y, { align: 'center' });
+  y += 5;
 
-  // ── Reference & date ────────────────────────────────────────────────────
-  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bolditalic');
+  doc.text('Barangay', pageW / 2, y, { align: 'center' });
+  y += 8;
+
+  // Divider
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageW - margin, y);
+  y += 3;
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageW - margin, y);
+  y += 10;
+
+  // ── Office of the Barangay Captain ───────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('OFFICE OF THE BARANGAY CAPTAIN', pageW / 2, y, { align: 'center' });
+  y += 12;
+
+  // ── Document Title ────────────────────────────────────────────────────────
+  const docLabel = (documentType || 'DOCUMENT').replace(/_/g, ' ');
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(docLabel, pageW / 2, y, { align: 'center' });
+  y += 5;
+
+  // Underline below title
+  const titleW = doc.getTextWidth(docLabel);
+  doc.setLineWidth(0.8);
+  doc.line((pageW - titleW) / 2, y, (pageW + titleW) / 2, y);
+  y += 14;
+
+  // ── Reference info ────────────────────────────────────────────────────────
   doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 80, 80);
   const nowStr = new Date().toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
-  doc.text(`Request ID: ${requestId}`, margin, 36);
-  doc.text(`Downloaded: ${nowStr}`, pageW - margin, 36, { align: 'right' });
+  doc.text(`Reference ID: ${requestId}`, margin + 5, y);
+  doc.text(`Date Issued: ${nowStr}`, pageW - margin - 5, y, { align: 'right' });
+  y += 10;
 
-  // Divider
-  doc.setDrawColor(45, 158, 82);
-  doc.setLineWidth(0.5);
-  doc.line(margin, 39, pageW - margin, 39);
+  // ── Certificate body text ─────────────────────────────────────────────────
+  doc.setTextColor(20, 20, 20);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
 
-  // ── Certificate content ─────────────────────────────────────────────────
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(10);
-  doc.setFont('courier', 'normal');   // monospace preserves the text art borders
+  // Strip the ASCII border lines from the content (the === lines)
+  const cleanContent = (content || '')
+    .replace(/[^\x00-\x7F]/g, '')   // strip non-ASCII (box drawing chars)
+    .replace(/={3,}/g, '')           // strip === borders
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .join('\n');
 
-  const lines = doc.splitTextToSize(content || 'Certificate content unavailable.', contentW);
-  let y = 48;
-  const lineH = 5.5;
-  const maxY  = doc.internal.pageSize.getHeight() - margin;
+  const contentW = pageW - margin * 2 - 10;
+  const lines = doc.splitTextToSize(cleanContent, contentW);
+  const lineH = 6.5;
+  const maxY  = pageH - margin - 20;
 
   lines.forEach((line) => {
     if (y + lineH > maxY) {
       doc.addPage();
-      y = margin;
+
+      // Re-draw border on new page
+      doc.setDrawColor(0);
+      doc.setLineWidth(1.5);
+      doc.rect(10, 10, pageW - 20, pageH - 20);
+      doc.setLineWidth(0.5);
+      doc.rect(13, 13, pageW - 26, pageH - 26);
+
+      y = 25;
+      doc.setTextColor(20, 20, 20);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
     }
-    doc.text(line, margin, y);
+    doc.text(line, margin + 5, y);
     y += lineH;
   });
 
-  // ── Footer ───────────────────────────────────────────────────────────────
+  // ── Signature area ────────────────────────────────────────────────────────
+  y = Math.max(y + 20, pageH - 55);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+
+  const sigX = pageW - margin - 60;
+  doc.text('Punong Barangay', sigX, y, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(sigX - 30, y - 4, sigX + 30, y - 4);
+
+  // ── O.R. / Doc Stamp footer ───────────────────────────────────────────────
+  y += 12;
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  doc.text('O.R No.: ______________________', margin + 5, y);
+  y += 5;
+  doc.text('Date Issued: ______________________', margin + 5, y);
+  y += 5;
+  doc.text('Doc. Stamp: Paid', margin + 5, y);
+
+  // ── Footer ────────────────────────────────────────────────────────────────
   const totalPages = doc.internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.setFontSize(8);
-    doc.setTextColor(160, 160, 160);
+    doc.setTextColor(150, 150, 150);
     doc.setFont('helvetica', 'normal');
     doc.text(
       `BrgyGO Digital Barangay System  •  Page ${p} of ${totalPages}`,
       pageW / 2,
-      doc.internal.pageSize.getHeight() - 8,
+      pageH - 6,
       { align: 'center' }
     );
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────
   const fileName = `${docLabel.replace(/\s+/g, '-')}-${requestId}.pdf`;
   doc.save(fileName);
   return fileName;

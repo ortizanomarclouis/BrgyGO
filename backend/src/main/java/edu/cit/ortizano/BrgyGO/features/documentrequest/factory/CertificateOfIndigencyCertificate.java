@@ -32,44 +32,53 @@ public class CertificateOfIndigencyCertificate extends Certificate {
     }
 
     @Override
-    public String generateContent() {
-        if (!isValid()) {
-            throw new IllegalStateException("Cannot generate content: incomplete certificate data");
-        }
-
-        StringBuilder content = new StringBuilder();
-        content.append("═══════════════════════════════════════════\n");
-        content.append("       REPUBLIC OF THE PHILIPPINES\n");
-        content.append("       CERTIFICATE OF INDIGENCY\n");
-        content.append("═══════════════════════════════════════════\n\n");
-        
-        content.append("Certificate No.: ").append(certificationNumber).append("\n");
-        content.append("Issued Date: ").append(issuedDate).append("\n");
-        content.append("Expiration Date: ").append(expirationDate).append("\n\n");
-        
-        content.append("TO WHOM IT MAY CONCERN:\n\n");
-        
-        content.append("This is to certify that ").append(residentName).append(",\n");
-        content.append("Address: ").append(address).append("\n");
-        content.append("is a bonafide resident of this barangay and belongs to\n");
-        content.append("the economically disadvantaged sector of the community.\n\n");
-        
-        content.append("Household Information:\n");
-        content.append("Monthly Income: ").append(monthlyIncome != null ? monthlyIncome : "Undisclosed").append("\n");
-        content.append("Number of Dependents: ").append(numberOfDependents != null ? numberOfDependents : "Not Specified").append("\n\n");
-        
-        content.append("This certificate is issued for purposes of scholarship,\n");
-        content.append("medical assistance, financial aid, and other social\n");
-        content.append("welfare programs.\n\n");
-        
-        content.append("Verified by: ").append(verifiedBy != null ? verifiedBy : "Barangay Official").append("\n");
-        content.append("Authorized to sign\n");
-        
-        content.append("\n═══════════════════════════════════════════\n");
-
-        this.content = content.toString();
-        return this.content;
+public String generateContent() {
+    if (!isValid()) {
+        throw new IllegalStateException("Cannot generate content: incomplete certificate data");
     }
+
+    StringBuilder content = new StringBuilder();
+    content.append("REPUBLIC OF THE PHILIPPINES\n\n");
+    content.append("OFFICE OF THE BARANGAY CAPTAIN\n\n");
+    content.append("CERTIFICATE OF INDIGENCY\n\n");
+    content.append("Certificate No.: ").append(certificationNumber).append("\n");
+    content.append("Date Issued: ").append(issuedDate.toLocalDate()).append("\n\n");
+
+    content.append("TO WHOM IT MAY CONCERN:\n\n");
+
+    content.append("        THIS IS TO CERTIFY that ").append(residentName)
+           .append(", of legal age, Filipino citizen,\n");
+    content.append("and a bonafide resident of this barangay located at ").append(address).append(",\n");
+    content.append("belongs to the INDIGENT sector of this community.\n\n");
+
+    if (monthlyIncome != null && !monthlyIncome.isEmpty()) {
+        content.append("        The declared household monthly income is ").append(monthlyIncome)
+               .append(", which is\n");
+        content.append("below the Regional Poverty Threshold as determined by NEDA.\n\n");
+    }
+
+    if (numberOfDependents != null && !numberOfDependents.isEmpty()) {
+        content.append("        Number of dependents: ").append(numberOfDependents).append(".\n\n");
+    }
+
+    content.append("        This CERTIFICATION is issued upon request of the above-named person\n");
+    content.append("for purposes of scholarship, medical assistance, financial aid, and other\n");
+    content.append("social welfare programs, given this ")
+           .append(issuedDate.getDayOfMonth())
+           .append(" day of ")
+           .append(issuedDate.getMonth().toString())
+           .append(" ")
+           .append(issuedDate.getYear())
+           .append(".\n\n\n");
+
+    content.append("Issued by: ").append(issuedBy).append("\n");
+    content.append("Punong Barangay\n");
+    content.append("(Not valid without the Barangay Dry Seal)\n\n");
+    content.append("Valid until: ").append(expirationDate.toLocalDate()).append("\n");
+
+    this.content = content.toString();
+    return this.content;
+}
 
     @Override
     public boolean isValid() {

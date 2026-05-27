@@ -32,42 +32,51 @@ public class CertificateOfResidencyCertificate extends Certificate {
     }
 
     @Override
-    public String generateContent() {
-        if (!isValid()) {
-            throw new IllegalStateException("Cannot generate content: incomplete certificate data");
-        }
-
-        StringBuilder content = new StringBuilder();
-        content.append("═══════════════════════════════════════════\n");
-        content.append("       REPUBLIC OF THE PHILIPPINES\n");
-        content.append("       CERTIFICATE OF RESIDENCY\n");
-        content.append("═══════════════════════════════════════════\n\n");
-        
-        content.append("Cert. No.: ").append(certificationNumber).append("\n");
-        content.append("Issued Date: ").append(issuedDate).append("\n");
-        content.append("Expiration Date: ").append(expirationDate).append("\n\n");
-        
-        content.append("TO WHOM IT MAY CONCERN:\n\n");
-        
-        content.append("This is to certify that ").append(residentName).append(",\n");
-        content.append("Address: ").append(address).append("\n");
-        content.append("is a bonafide resident of this barangay.\n\n");
-        
-        content.append("Period of Residency: ").append(residencePeriod != null ? residencePeriod : "As shown in records").append("\n");
-        content.append("Since: ").append(dateOfResidency).append("\n\n");
-        
-        content.append("This certificate is issued for purposes of vehicle\n");
-        content.append("registration, business permits, school enrollment,\n");
-        content.append("and other official requirements.\n\n");
-        
-        content.append("Issued by: ").append(issuedBy).append("\n");
-        content.append("Barangay Official\n");
-        
-        content.append("\n═══════════════════════════════════════════\n");
-
-        this.content = content.toString();
-        return this.content;
+public String generateContent() {
+    if (!isValid()) {
+        throw new IllegalStateException("Cannot generate content: incomplete certificate data");
     }
+
+    StringBuilder content = new StringBuilder();
+    content.append("REPUBLIC OF THE PHILIPPINES\n\n");
+    content.append("OFFICE OF THE BARANGAY CAPTAIN\n\n");
+    content.append("CERTIFICATE OF RESIDENCY\n\n");
+    content.append("Cert. No.: ").append(certificationNumber).append("\n");
+    content.append("Date Issued: ").append(issuedDate.toLocalDate()).append("\n\n");
+
+    content.append("TO WHOM IT MAY CONCERN:\n\n");
+
+    content.append("        This is to certify that ").append(residentName)
+           .append(", of legal age, Filipino citizen,\n");
+    content.append("whose address is ").append(address).append(", is a PERMANENT RESIDENT\n");
+    content.append("of this Barangay.\n\n");
+
+    if (residencePeriod != null && !residencePeriod.isEmpty()) {
+        content.append("        Based on records of this office, he/she has been residing in this\n");
+        content.append("barangay for ").append(residencePeriod).append(".\n\n");
+    } else {
+        content.append("        Based on records of this office, he/she has been residing in this\n");
+        content.append("barangay as shown in official records.\n\n");
+    }
+
+    content.append("        This CERTIFICATION is being issued upon the request of the above-named\n");
+    content.append("person for whatever legal purpose it may serve.\n\n");
+
+    content.append("        Issued this ")
+           .append(issuedDate.getDayOfMonth())
+           .append(" day of ")
+           .append(issuedDate.getMonth().toString())
+           .append(", ")
+           .append(issuedDate.getYear())
+           .append(" at this Barangay.\n\n\n");
+
+    content.append("Issued by: ").append(issuedBy).append("\n");
+    content.append("Punong Barangay\n\n");
+    content.append("Valid until: ").append(expirationDate.toLocalDate()).append("\n");
+
+    this.content = content.toString();
+    return this.content;
+}
 
     @Override
     public boolean isValid() {

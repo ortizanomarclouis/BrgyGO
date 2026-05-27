@@ -6,8 +6,8 @@ package edu.cit.ortizano.BrgyGO.features.documentrequest.model;
 public enum DocumentType {
     BARANGAY_CLEARANCE("Barangay Clearance"),
     CERTIFICATE_OF_INDIGENCY("Certificate of Indigency"),
-    CERTIFICATE_OF_RESIDENCY("Certificate of Residency"),
-    BARANGAY_ID("Barangay ID Application");
+    CERTIFICATE_OF_RESIDENCY("Certificate of Residency");
+    
 
     private final String displayName;
 
