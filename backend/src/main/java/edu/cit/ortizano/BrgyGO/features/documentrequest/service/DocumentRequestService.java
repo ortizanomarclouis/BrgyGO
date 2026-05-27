@@ -96,9 +96,10 @@ public class DocumentRequestService {
         ));
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentRequest> getAllRequests() {
         return documentRequestRepository.findAll();
-    }
+}
 
     public List<DocumentRequest> getRequestsByStatus(DocumentStatus status) {
         return documentRequestRepository.findByStatus(status);
