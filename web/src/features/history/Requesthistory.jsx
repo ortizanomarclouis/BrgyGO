@@ -29,6 +29,7 @@ const ALL_DOC_TYPES = [
   'BARANGAY_CLEARANCE',
   'CERTIFICATE_OF_INDIGENCY',
   'CERTIFICATE_OF_RESIDENCY',
+  'BARANGAY_ID',
 ];
 
 function formatLabel(str) {
