@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import edu.cit.ortizano.BrgyGO.features.documentrequest.factory.DocumentFactory;
 import edu.cit.ortizano.BrgyGO.features.documentrequest.factory.Certificate;
 import edu.cit.ortizano.BrgyGO.features.documentrequest.model.DocumentRequest;
 import edu.cit.ortizano.BrgyGO.features.documentrequest.model.DocumentStatus;
@@ -19,12 +19,15 @@ public class DocumentRequestService {
 
     private final DocumentRequestRepository documentRequestRepository;
     private final PrintQueueManager printQueueManager;
+    private final DocumentFactory documentFactory;
 
     public DocumentRequestService(
             DocumentRequestRepository documentRequestRepository,
-            PrintQueueManager printQueueManager) {
+            PrintQueueManager printQueueManager,
+            DocumentFactory documentFactory) {
         this.documentRequestRepository = documentRequestRepository;
         this.printQueueManager = printQueueManager;
+        this.documentFactory = documentFactory;
     }
 
     @Transactional
