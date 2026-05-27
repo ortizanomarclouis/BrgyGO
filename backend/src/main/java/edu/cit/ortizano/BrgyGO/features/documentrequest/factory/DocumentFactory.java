@@ -53,7 +53,7 @@ public class DocumentFactory {
             case BARANGAY_CLEARANCE -> new BarangayClearanceFactory();
             case CERTIFICATE_OF_INDIGENCY -> new CertificateOfIndigencyFactory();
             case CERTIFICATE_OF_RESIDENCY -> new CertificateOfResidencyFactory();
-            case BARANGAY_ID -> new BarangayIDFactory();
+            default -> throw new IllegalArgumentException("Unsupported document type: " + documentType);
         };
     }
 

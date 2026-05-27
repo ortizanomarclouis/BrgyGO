@@ -27,41 +27,42 @@ public class BarangayClearanceCertificate extends Certificate {
     }
 
     @Override
-    public String generateContent() {
-        if (!isValid()) {
-            throw new IllegalStateException("Cannot generate content: incomplete certificate data");
-        }
-
-        StringBuilder content = new StringBuilder();
-        content.append("═══════════════════════════════════════════\n");
-        content.append("       REPUBLIC OF THE PHILIPPINES\n");
-        content.append("       BARANGAY CLEARANCE\n");
-        content.append("═══════════════════════════════════════════\n\n");
-        
-        content.append("Clearance No.: ").append(certificationNumber).append("\n");
-        content.append("Issued Date: ").append(issuedDate).append("\n");
-        content.append("Expiration Date: ").append(expirationDate).append("\n\n");
-        
-        content.append("TO WHOM IT MAY CONCERN:\n\n");
-        
-        content.append("This is to certify that ").append(residentName).append("\n");
-        content.append("Address: ").append(address).append("\n\n");
-        
-        content.append("has been a resident of this barangay and is known to be\n");
-        content.append("of good moral character. He/She is hereby certified to\n");
-        content.append("have no derogatory record on file with this office.\n\n");
-        
-        content.append("This certification is issued upon request for employment,\n");
-        content.append("travel, loans, and other legitimate purposes.\n\n");
-        
-        content.append("Issued by: ").append(issuedBy).append("\n");
-        content.append("Barangay Official\n");
-        
-        content.append("\n═══════════════════════════════════════════\n");
-
-        this.content = content.toString();
-        return this.content;
+public String generateContent() {
+    if (!isValid()) {
+        throw new IllegalStateException("Cannot generate content: incomplete certificate data");
     }
+
+    StringBuilder content = new StringBuilder();
+    content.append("REPUBLIC OF THE PHILIPPINES\n\n");
+    content.append("OFFICE OF THE BARANGAY CAPTAIN\n\n");
+    content.append("BARANGAY CLEARANCE\n\n");
+    content.append("Clearance No.: ").append(certificationNumber).append("\n");
+    content.append("Date Issued: ").append(issuedDate.toLocalDate()).append("\n\n");
+
+    content.append("TO WHOM IT MAY CONCERN:\n\n");
+
+    content.append("        This is to certify that ").append(residentName)
+           .append(", of legal age, Filipino citizen, and a bonafide resident of this\n");
+    content.append("barangay located at ").append(address).append(", is known to be of GOOD MORAL\n");
+    content.append("CHARACTER and a law-abiding citizen in the community.\n\n");
+
+    content.append("        To certify further, that he/she has no derogatory and/or criminal\n");
+    content.append("records filed in this barangay.\n\n");
+
+    content.append("        This BARANGAY CLEARANCE is being issued upon the request of the\n");
+    content.append("above-named person for whatever legal purpose it may serve.\n\n");
+
+    content.append("        ISSUED this _____ day of _______________, ")
+           .append(issuedDate.getYear())
+           .append(" at this Barangay.\n\n\n");
+
+    content.append("Issued by: ").append(issuedBy).append("\n");
+    content.append("Punong Barangay\n\n");
+    content.append("Valid until: ").append(expirationDate.toLocalDate()).append("\n");
+
+    this.content = content.toString();
+    return this.content;
+}
 
     @Override
     public boolean isValid() {

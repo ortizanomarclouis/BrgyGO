@@ -6,7 +6,6 @@ const documentOptions = [
   { value: 'BARANGAY_CLEARANCE', label: 'Barangay Clearance' },
   { value: 'CERTIFICATE_OF_INDIGENCY', label: 'Certificate of Indigency' },
   { value: 'CERTIFICATE_OF_RESIDENCY', label: 'Certificate of Residency' },
-  { value: 'BARANGAY_ID', label: 'Barangay ID Application' },
 ];
 
 function RequestDocument({ onNavigate }) {
